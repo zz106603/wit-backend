@@ -21,6 +21,10 @@ public record ApiErrorResponse(
         return new ApiErrorResponse(errorCode.getCode(), errorCode.getMessage(), errors);
     }
 
+    public static ApiErrorResponse of(ErrorCode errorCode, String message, List<ValidationError> errors) {
+        return new ApiErrorResponse(errorCode.getCode(), message, errors);
+    }
+
     public record ValidationError(
             String field,
             String message

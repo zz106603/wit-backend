@@ -4,6 +4,8 @@ import com.yunhwan.wit.application.exception.ErrorCode;
 import com.yunhwan.wit.application.exception.WitException;
 import jakarta.validation.ConstraintViolationException;
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BindException;
 import org.springframework.validation.BindingResult;
@@ -14,12 +16,12 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
     @ExceptionHandler(WitException.class)
     public ResponseEntity<ApiErrorResponse> handleWitException(WitException exception) {
         ErrorCode errorCode = exception.getErrorCode();
-        return ResponseEntity
-                .status(errorCode.getStatus())
-                .body(ApiErrorResponse.of(errorCode, exception.getMessage()));
+        return response(errorCode, exception.getMessage());
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -41,23 +43,19 @@ public class GlobalExceptionHandler {
                 ))
                 .toList();
 
-        return ResponseEntity
-                .status(ErrorCode.INVALID_REQUEST.getStatus())
-                .body(ApiErrorResponse.of(ErrorCode.INVALID_REQUEST, errors));
+        return badRequest(errors);
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ApiErrorResponse> handleIllegalArgument(IllegalArgumentException exception) {
-        return ResponseEntity
-                .status(ErrorCode.INVALID_REQUEST.getStatus())
-                .body(ApiErrorResponse.of(ErrorCode.INVALID_REQUEST, exception.getMessage()));
+        log.warn("Invalid argument: {}", exception.getMessage());
+        return response(ErrorCode.INVALID_REQUEST, exception.getMessage());
     }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiErrorResponse> handleException(Exception exception) {
-        return ResponseEntity
-                .status(ErrorCode.INTERNAL_SERVER_ERROR.getStatus())
-                .body(ApiErrorResponse.of(ErrorCode.INTERNAL_SERVER_ERROR));
+        log.error("Unexpected exception occurred", exception);
+        return response(ErrorCode.INTERNAL_SERVER_ERROR);
     }
 
     private ResponseEntity<ApiErrorResponse> badRequest(BindingResult bindingResult) {
@@ -68,8 +66,32 @@ public class GlobalExceptionHandler {
                 ))
                 .toList();
 
+        return badRequest(errors);
+    }
+
+    private ResponseEntity<ApiErrorResponse> badRequest(List<ApiErrorResponse.ValidationError> errors) {
+        return response(ErrorCode.INVALID_REQUEST, ErrorCode.INVALID_REQUEST.getMessage(), errors);
+    }
+
+    private ResponseEntity<ApiErrorResponse> response(ErrorCode errorCode) {
         return ResponseEntity
-                .status(ErrorCode.INVALID_REQUEST.getStatus())
-                .body(ApiErrorResponse.of(ErrorCode.INVALID_REQUEST, errors));
+                .status(errorCode.getStatus())
+                .body(ApiErrorResponse.of(errorCode));
+    }
+
+    private ResponseEntity<ApiErrorResponse> response(ErrorCode errorCode, String message) {
+        return ResponseEntity
+                .status(errorCode.getStatus())
+                .body(ApiErrorResponse.of(errorCode, message));
+    }
+
+    private ResponseEntity<ApiErrorResponse> response(
+            ErrorCode errorCode,
+            String message,
+            List<ApiErrorResponse.ValidationError> errors
+    ) {
+        return ResponseEntity
+                .status(errorCode.getStatus())
+                .body(ApiErrorResponse.of(errorCode, message, errors));
     }
 }
