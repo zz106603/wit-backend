@@ -1,0 +1,5 @@
+spring:
+  application:
+    name: wit-backend
+  profiles:
+    default: local
