@@ -149,4 +149,7 @@ replay_pid*
 
 build/
 
+# Local environment files
 .env
+.env.*
+!.env.example
