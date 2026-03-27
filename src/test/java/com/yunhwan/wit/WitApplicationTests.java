@@ -1,10 +1,9 @@
 package com.yunhwan.wit;
 
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
+import com.yunhwan.wit.support.IntegrationTestSupport;
 
-@SpringBootTest
-class WitApplicationTests {
+class WitApplicationTests extends IntegrationTestSupport {
 
 	@Test
 	void contextLoads() {
