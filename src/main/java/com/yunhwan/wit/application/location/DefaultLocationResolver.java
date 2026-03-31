@@ -32,6 +32,10 @@ public class DefaultLocationResolver implements LocationResolver {
             return ruleResult;
         }
 
+        if (isMeaninglessInput(rawLocation)) {
+            return ruleResult;
+        }
+
         ResolvedLocation aiResult = aiLocationFallbackResolver.resolve(rawLocation);
         if (isSuccessfulAiResult(aiResult, rawLocation)) {
             return aiResult;
@@ -54,5 +58,13 @@ public class DefaultLocationResolver implements LocationResolver {
         }
 
         return Objects.equals(aiResult.rawLocation(), rawLocation);
+    }
+
+    private boolean isMeaninglessInput(String rawLocation) {
+        if (rawLocation == null || rawLocation.isBlank()) {
+            return true;
+        }
+
+        return rawLocation.replaceAll("[^0-9a-zA-Z가-힣]", "").isBlank();
     }
 }
