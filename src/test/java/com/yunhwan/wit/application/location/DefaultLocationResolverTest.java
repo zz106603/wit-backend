@@ -141,7 +141,7 @@ class DefaultLocationResolverTest {
     }
 
     @Test
-    void blank입력도_rule실패후_ai실패면_failed를_유지한다() {
+    void blank입력은_ai_fallback없이_failed를_반환한다() {
         CountingAiLocationFallbackResolver aiFallbackResolver = new CountingAiLocationFallbackResolver(
                 ResolvedLocation.failed("   ")
         );
@@ -152,7 +152,7 @@ class DefaultLocationResolverTest {
         assertThat(result.status()).isEqualTo(LocationResolutionStatus.FAILED);
         assertThat(result.resolvedBy()).isNull();
         assertThat(result.rawLocation()).isEqualTo("   ");
-        assertThat(aiFallbackResolver.invocationCount()).isEqualTo(1);
+        assertThat(aiFallbackResolver.invocationCount()).isZero();
     }
 
     private static class CountingAiLocationFallbackResolver implements AiLocationFallbackResolver {
