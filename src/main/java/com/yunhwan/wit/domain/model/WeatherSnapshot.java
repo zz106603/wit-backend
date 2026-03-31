@@ -16,5 +16,9 @@ public record WeatherSnapshot(
         Objects.requireNonNull(regionName, "regionName must not be null");
         Objects.requireNonNull(targetTime, "targetTime must not be null");
         Objects.requireNonNull(weatherType, "weatherType must not be null");
+
+        if (precipitationProbability < 0 || precipitationProbability > 100) {
+            throw new IllegalArgumentException("precipitationProbability must be between 0 and 100");
+        }
     }
 }

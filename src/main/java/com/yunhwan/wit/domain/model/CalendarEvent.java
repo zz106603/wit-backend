@@ -16,5 +16,9 @@ public record CalendarEvent(
         Objects.requireNonNull(title, "title must not be null");
         Objects.requireNonNull(startAt, "startAt must not be null");
         Objects.requireNonNull(endAt, "endAt must not be null");
+
+        if (endAt.isBefore(startAt)) {
+            throw new IllegalArgumentException("endAt must not be before startAt");
+        }
     }
 }

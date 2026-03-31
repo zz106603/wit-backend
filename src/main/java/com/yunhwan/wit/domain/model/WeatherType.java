@@ -2,8 +2,8 @@ package com.yunhwan.wit.domain.model;
 
 public enum WeatherType {
     CLEAR,
-    CLOUDS,
+    CLOUDY,
     RAIN,
     SNOW,
-    WIND
+    STRONG_WIND
 }
