@@ -34,13 +34,10 @@ public class WeatherSnapshotMapper {
         String regionName = StringUtils.hasText(response.regionName())
                 ? response.regionName()
                 : location.displayLocation();
-        LocalDateTime targetTime = response.targetTime() != null
-                ? response.targetTime()
-                : requestedTargetTime;
 
         return new WeatherSnapshot(
                 regionName,
-                targetTime,
+                requestedTargetTime,
                 response.temperature(),
                 response.feelsLike(),
                 response.precipitationProbability(),
@@ -50,22 +47,18 @@ public class WeatherSnapshotMapper {
 
     private WeatherType mapWeatherType(String condition) {
         if (!StringUtils.hasText(condition)) {
-            throw new IllegalArgumentException("condition must not be blank");
+            return WeatherType.UNKNOWN;
         }
 
-        String normalized = condition
-                .trim()
-                .replace('-', '_')
-                .replace(' ', '_')
-                .toUpperCase(Locale.ROOT);
+        String normalized = condition.trim().toUpperCase(Locale.ROOT);
 
         return switch (normalized) {
-            case "CLEAR", "SUNNY" -> WeatherType.CLEAR;
-            case "CLOUDY", "PARTLY_CLOUDY", "OVERCAST" -> WeatherType.CLOUDY;
-            case "RAIN", "DRIZZLE", "SHOWER", "THUNDERSTORM" -> WeatherType.RAIN;
-            case "SNOW", "SLEET", "BLIZZARD" -> WeatherType.SNOW;
-            case "WIND", "WINDY", "STRONG_WIND", "GALE" -> WeatherType.STRONG_WIND;
-            default -> throw new IllegalArgumentException("unsupported weather condition: " + condition);
+            case "CLEAR" -> WeatherType.CLEAR;
+            case "CLOUDS" -> WeatherType.CLOUDY;
+            case "RAIN" -> WeatherType.RAIN;
+            case "SNOW" -> WeatherType.SNOW;
+            case "WIND" -> WeatherType.STRONG_WIND;
+            default -> WeatherType.UNKNOWN;
         };
     }
 }

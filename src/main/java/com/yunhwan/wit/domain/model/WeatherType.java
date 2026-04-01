@@ -5,5 +5,6 @@ public enum WeatherType {
     CLOUDY,
     RAIN,
     SNOW,
-    STRONG_WIND
+    STRONG_WIND,
+    UNKNOWN
 }
