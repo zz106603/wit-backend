@@ -3,3 +3,10 @@ spring:
     name: wit-backend
   profiles:
     default: local
+
+wit:
+  weather:
+    api:
+      base-url: ${WEATHER_API_BASE_URL:https://api.example.com}
+      current-path: ${WEATHER_API_CURRENT_PATH:/current}
+      forecast-path: ${WEATHER_API_FORECAST_PATH:/forecast}
