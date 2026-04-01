@@ -172,7 +172,7 @@ class HttpWeatherClientTest {
 
         assertThatThrownBy(() -> weatherClient.fetchCurrentWeather(resolvedLocation()))
                 .isInstanceOf(WeatherInfrastructureException.class)
-                .hasMessage("weather API response parsing failed");
+                .hasMessage("weather API communication failed");
 
         server.verify();
     }
