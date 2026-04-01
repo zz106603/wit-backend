@@ -88,7 +88,7 @@ public class HttpWeatherClient implements WeatherClient {
         } catch (RestClientResponseException exception) {
             throw new WeatherInfrastructureException("weather API request failed", exception);
         } catch (RestClientException exception) {
-            throw new WeatherInfrastructureException("weather API response parsing failed", exception);
+            throw new WeatherInfrastructureException("weather API communication failed", exception);
         }
     }
 }
