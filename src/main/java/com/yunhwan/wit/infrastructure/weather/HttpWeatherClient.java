@@ -1,0 +1,77 @@
+package com.yunhwan.wit.infrastructure.weather;
+
+import com.yunhwan.wit.application.weather.WeatherClient;
+import com.yunhwan.wit.domain.model.ResolvedLocation;
+import com.yunhwan.wit.domain.model.WeatherSnapshot;
+import java.time.Clock;
+import java.time.LocalDateTime;
+import java.util.Objects;
+import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestClient;
+
+@Component
+public class HttpWeatherClient implements WeatherClient {
+
+    private final RestClient weatherRestClient;
+    private final WeatherApiProperties properties;
+    private final WeatherSnapshotMapper weatherSnapshotMapper;
+    private final Clock clock;
+
+    public HttpWeatherClient(
+            RestClient weatherRestClient,
+            WeatherApiProperties properties,
+            WeatherSnapshotMapper weatherSnapshotMapper,
+            Clock clock
+    ) {
+        this.weatherRestClient = Objects.requireNonNull(weatherRestClient, "weatherRestClient must not be null");
+        this.properties = Objects.requireNonNull(properties, "properties must not be null");
+        this.weatherSnapshotMapper = Objects.requireNonNull(
+                weatherSnapshotMapper,
+                "weatherSnapshotMapper must not be null"
+        );
+        this.clock = Objects.requireNonNull(clock, "clock must not be null");
+    }
+
+    @Override
+    public WeatherSnapshot fetchCurrentWeather(ResolvedLocation location) {
+        validateLocation(location);
+
+        LocalDateTime requestedTargetTime = LocalDateTime.now(clock);
+        WeatherApiResponse response = weatherRestClient.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path(properties.currentPath())
+                        .queryParam("latitude", location.lat())
+                        .queryParam("longitude", location.lng())
+                        .build())
+                .retrieve()
+                .body(WeatherApiResponse.class);
+
+        return weatherSnapshotMapper.toSnapshot(location, requestedTargetTime, response);
+    }
+
+    @Override
+    public WeatherSnapshot fetchWeatherAt(ResolvedLocation location, LocalDateTime targetTime) {
+        validateLocation(location);
+        Objects.requireNonNull(targetTime, "targetTime must not be null");
+
+        WeatherApiResponse response = weatherRestClient.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path(properties.forecastPath())
+                        .queryParam("latitude", location.lat())
+                        .queryParam("longitude", location.lng())
+                        .queryParam("targetTime", targetTime)
+                        .build())
+                .retrieve()
+                .body(WeatherApiResponse.class);
+
+        return weatherSnapshotMapper.toSnapshot(location, targetTime, response);
+    }
+
+    private void validateLocation(ResolvedLocation location) {
+        Objects.requireNonNull(location, "location must not be null");
+
+        if (location.lat() == null || location.lng() == null) {
+            throw new IllegalArgumentException("location coordinates must not be null");
+        }
+    }
+}
