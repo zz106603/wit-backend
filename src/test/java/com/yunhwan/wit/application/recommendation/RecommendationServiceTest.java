@@ -12,6 +12,7 @@ import com.yunhwan.wit.domain.model.ResolvedLocation;
 import com.yunhwan.wit.domain.model.WeatherSnapshot;
 import com.yunhwan.wit.domain.model.WeatherType;
 import com.yunhwan.wit.domain.rule.OutfitRuleEngine;
+import com.yunhwan.wit.domain.rule.WeatherFailureFallbackDecisionProvider;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
@@ -43,7 +44,8 @@ class RecommendationServiceTest {
                 rawLocation -> eventLocation,
                 () -> currentLocation,
                 weatherClient,
-                new OutfitRuleEngine()
+                new OutfitRuleEngine(),
+                new WeatherFailureFallbackDecisionProvider()
         );
 
         RecommendationResult result = recommendationService.recommend(calendarEvent);
@@ -72,7 +74,8 @@ class RecommendationServiceTest {
                 rawLocation -> ResolvedLocation.failed(rawLocation),
                 () -> currentLocation,
                 weatherClient,
-                new OutfitRuleEngine()
+                new OutfitRuleEngine(),
+                new WeatherFailureFallbackDecisionProvider()
         );
 
         RecommendationResult result = recommendationService.recommend(calendarEvent);
@@ -88,12 +91,14 @@ class RecommendationServiceTest {
         ResolvedLocation currentLocation = currentLocation();
         ResolvedLocation eventLocation = eventLocation();
         TrackingRuleEngine ruleEngine = new TrackingRuleEngine();
+        TrackingFallbackDecisionProvider fallbackDecisionProvider = new TrackingFallbackDecisionProvider();
 
         RecommendationService recommendationService = new RecommendationService(
                 rawLocation -> eventLocation,
                 () -> currentLocation,
                 new FailingWeatherClient(),
-                ruleEngine
+                ruleEngine,
+                fallbackDecisionProvider
         );
 
         RecommendationResult result = recommendationService.recommend(calendarEvent);
@@ -106,6 +111,7 @@ class RecommendationServiceTest {
         assertThat(decision.recommendedOutfitLevel()).isEqualTo(RecommendedOutfitLevel.HEAVY_OUTER);
         assertThat(decision.needUmbrella()).isTrue();
         assertThat(ruleEngine.called).isFalse();
+        assertThat(fallbackDecisionProvider.called).isTrue();
     }
 
     @Test
@@ -124,7 +130,8 @@ class RecommendationServiceTest {
                 },
                 () -> currentLocation,
                 weatherClient,
-                new OutfitRuleEngine()
+                new OutfitRuleEngine(),
+                new WeatherFailureFallbackDecisionProvider()
         );
 
         RecommendationResult result = recommendationService.recommend(calendarEvent);
@@ -138,12 +145,14 @@ class RecommendationServiceTest {
         ResolvedLocation currentLocation = currentLocation();
         ResolvedLocation eventLocation = eventLocation();
         TrackingRuleEngine ruleEngine = new TrackingRuleEngine();
+        TrackingFallbackDecisionProvider fallbackDecisionProvider = new TrackingFallbackDecisionProvider();
 
         RecommendationService recommendationService = new RecommendationService(
                 rawLocation -> eventLocation,
                 () -> currentLocation,
                 new NullWeatherClient(),
-                ruleEngine
+                ruleEngine,
+                fallbackDecisionProvider
         );
 
         RecommendationResult result = recommendationService.recommend(calendarEvent);
@@ -153,6 +162,7 @@ class RecommendationServiceTest {
         assertThat(result.startWeather()).isNull();
         assertThat(result.endWeather()).isNull();
         assertThat(ruleEngine.called).isFalse();
+        assertThat(fallbackDecisionProvider.called).isTrue();
     }
 
     private ResolvedLocation currentLocation() {
@@ -263,6 +273,17 @@ class RecommendationServiceTest {
         ) {
             called = true;
             return super.decide(currentWeather, startWeather, endWeather);
+        }
+    }
+
+    private static final class TrackingFallbackDecisionProvider extends WeatherFailureFallbackDecisionProvider {
+
+        private boolean called;
+
+        @Override
+        public OutfitDecision provide() {
+            called = true;
+            return super.provide();
         }
     }
 }
