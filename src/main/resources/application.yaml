@@ -5,6 +5,12 @@ spring:
     default: local
 
 wit:
+  location:
+    current:
+      normalized-query: ${CURRENT_LOCATION_NORMALIZED_QUERY:current}
+      display-location: ${CURRENT_LOCATION_DISPLAY_LOCATION:서울특별시 강남구}
+      lat: ${CURRENT_LOCATION_LAT:37.5172}
+      lng: ${CURRENT_LOCATION_LNG:127.0473}
   weather:
     api:
       base-url: ${WEATHER_API_BASE_URL:https://api.example.com}
