@@ -48,6 +48,8 @@ class RecommendationServiceTest {
 
         RecommendationResult result = recommendationService.recommend(calendarEvent);
 
+        assertThat(result.weatherFallbackApplied()).isFalse();
+        assertThat(result.outfitDecision()).isNotNull();
         assertThat(result.calendarEvent()).isEqualTo(calendarEvent);
         assertThat(result.resolvedLocation()).isEqualTo(eventLocation);
         assertThat(result.currentWeather().targetTime()).isEqualTo(currentTime);
@@ -75,6 +77,7 @@ class RecommendationServiceTest {
 
         RecommendationResult result = recommendationService.recommend(calendarEvent);
 
+        assertThat(result.weatherFallbackApplied()).isFalse();
         assertThat(result.resolvedLocation()).isEqualTo(currentLocation);
         assertThat(result.startWeather().regionName()).isEqualTo(currentLocation.displayLocation());
         assertThat(result.endWeather().regionName()).isEqualTo(currentLocation.displayLocation());
@@ -84,22 +87,72 @@ class RecommendationServiceTest {
     void 날씨조회가_실패해도_안전한_fallback_결과를_반환한다() {
         ResolvedLocation currentLocation = currentLocation();
         ResolvedLocation eventLocation = eventLocation();
+        TrackingRuleEngine ruleEngine = new TrackingRuleEngine();
 
         RecommendationService recommendationService = new RecommendationService(
                 rawLocation -> eventLocation,
                 () -> currentLocation,
                 new FailingWeatherClient(),
-                new OutfitRuleEngine()
+                ruleEngine
         );
 
         RecommendationResult result = recommendationService.recommend(calendarEvent);
         OutfitDecision decision = result.outfitDecision();
 
-        assertThat(result.currentWeather().weatherType()).isEqualTo(WeatherType.UNKNOWN);
-        assertThat(result.startWeather().weatherType()).isEqualTo(WeatherType.UNKNOWN);
-        assertThat(result.endWeather().weatherType()).isEqualTo(WeatherType.UNKNOWN);
+        assertThat(result.weatherFallbackApplied()).isTrue();
+        assertThat(result.currentWeather()).isNull();
+        assertThat(result.startWeather()).isNull();
+        assertThat(result.endWeather()).isNull();
         assertThat(decision.recommendedOutfitLevel()).isEqualTo(RecommendedOutfitLevel.HEAVY_OUTER);
         assertThat(decision.needUmbrella()).isTrue();
+        assertThat(ruleEngine.called).isFalse();
+    }
+
+    @Test
+    void 위치해석기_예외가_발생하면_현재위치로_대체한다() {
+        ResolvedLocation currentLocation = currentLocation();
+        StubWeatherClient weatherClient = new StubWeatherClient();
+        weatherClient.setCurrentWeather(currentLocation, snapshot(currentLocation, currentTime, 20, 20, 10, WeatherType.CLEAR));
+        weatherClient.setTimedWeather(currentLocation, calendarEvent.startAt(),
+                snapshot(currentLocation, calendarEvent.startAt(), 19, 19, 20, WeatherType.CLOUDY));
+        weatherClient.setTimedWeather(currentLocation, calendarEvent.endAt(),
+                snapshot(currentLocation, calendarEvent.endAt(), 16, 16, 20, WeatherType.CLOUDY));
+
+        RecommendationService recommendationService = new RecommendationService(
+                rawLocation -> {
+                    throw new RuntimeException("resolver failure");
+                },
+                () -> currentLocation,
+                weatherClient,
+                new OutfitRuleEngine()
+        );
+
+        RecommendationResult result = recommendationService.recommend(calendarEvent);
+
+        assertThat(result.resolvedLocation()).isEqualTo(currentLocation);
+        assertThat(result.weatherFallbackApplied()).isFalse();
+    }
+
+    @Test
+    void 날씨클라이언트가_null을_반환하면_명시적_fallback_결과를_반환한다() {
+        ResolvedLocation currentLocation = currentLocation();
+        ResolvedLocation eventLocation = eventLocation();
+        TrackingRuleEngine ruleEngine = new TrackingRuleEngine();
+
+        RecommendationService recommendationService = new RecommendationService(
+                rawLocation -> eventLocation,
+                () -> currentLocation,
+                new NullWeatherClient(),
+                ruleEngine
+        );
+
+        RecommendationResult result = recommendationService.recommend(calendarEvent);
+
+        assertThat(result.weatherFallbackApplied()).isTrue();
+        assertThat(result.currentWeather()).isNull();
+        assertThat(result.startWeather()).isNull();
+        assertThat(result.endWeather()).isNull();
+        assertThat(ruleEngine.called).isFalse();
     }
 
     private ResolvedLocation currentLocation() {
@@ -182,6 +235,34 @@ class RecommendationServiceTest {
         @Override
         public WeatherSnapshot fetchWeatherAt(ResolvedLocation location, LocalDateTime targetTime) {
             throw new RuntimeException("weather failure");
+        }
+    }
+
+    private static final class NullWeatherClient implements WeatherClient {
+
+        @Override
+        public WeatherSnapshot fetchCurrentWeather(ResolvedLocation location) {
+            return null;
+        }
+
+        @Override
+        public WeatherSnapshot fetchWeatherAt(ResolvedLocation location, LocalDateTime targetTime) {
+            return null;
+        }
+    }
+
+    private static final class TrackingRuleEngine extends OutfitRuleEngine {
+
+        private boolean called;
+
+        @Override
+        public OutfitDecision decide(
+                WeatherSnapshot currentWeather,
+                WeatherSnapshot startWeather,
+                WeatherSnapshot endWeather
+        ) {
+            called = true;
+            return super.decide(currentWeather, startWeather, endWeather);
         }
     }
 }
