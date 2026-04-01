@@ -10,6 +10,7 @@ import com.yunhwan.wit.application.weather.WeatherClient;
 import com.yunhwan.wit.domain.model.LocationResolvedBy;
 import com.yunhwan.wit.domain.model.ResolvedLocation;
 import com.yunhwan.wit.domain.rule.OutfitRuleEngine;
+import com.yunhwan.wit.domain.rule.WeatherFailureFallbackDecisionProvider;
 import com.yunhwan.wit.infrastructure.location.CurrentLocationProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -56,12 +57,24 @@ public class RecommendationAssemblyConfig {
     }
 
     @Bean
+    public WeatherFailureFallbackDecisionProvider weatherFailureFallbackDecisionProvider() {
+        return new WeatherFailureFallbackDecisionProvider();
+    }
+
+    @Bean
     public RecommendationService recommendationService(
             LocationResolver locationResolver,
             CurrentLocationProvider currentLocationProvider,
             WeatherClient weatherClient,
-            OutfitRuleEngine outfitRuleEngine
+            OutfitRuleEngine outfitRuleEngine,
+            WeatherFailureFallbackDecisionProvider weatherFailureFallbackDecisionProvider
     ) {
-        return new RecommendationService(locationResolver, currentLocationProvider, weatherClient, outfitRuleEngine);
+        return new RecommendationService(
+                locationResolver,
+                currentLocationProvider,
+                weatherClient,
+                outfitRuleEngine,
+                weatherFailureFallbackDecisionProvider
+        );
     }
 }
