@@ -1,25 +1,31 @@
 package com.yunhwan.wit.infrastructure.config;
 
 import com.yunhwan.wit.application.location.AiLocationFallbackResolver;
+import com.yunhwan.wit.application.location.CachingLocationResolver;
 import com.yunhwan.wit.application.location.CurrentLocationProvider;
 import com.yunhwan.wit.application.location.DefaultLocationResolver;
+import com.yunhwan.wit.application.location.LocationResolutionCache;
 import com.yunhwan.wit.application.location.LocationResolver;
 import com.yunhwan.wit.application.location.RuleBasedLocationResolver;
 import com.yunhwan.wit.application.recommendation.RecommendationService;
 import com.yunhwan.wit.application.summary.SummaryGenerator;
 import com.yunhwan.wit.application.weather.WeatherClient;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yunhwan.wit.domain.model.LocationResolvedBy;
 import com.yunhwan.wit.domain.model.ResolvedLocation;
 import com.yunhwan.wit.domain.rule.OutfitRuleEngine;
 import com.yunhwan.wit.domain.rule.WeatherFailureFallbackDecisionProvider;
 import com.yunhwan.wit.infrastructure.location.CurrentLocationProperties;
+import com.yunhwan.wit.infrastructure.location.LocationCacheProperties;
+import com.yunhwan.wit.infrastructure.location.RedisLocationResolutionCache;
 import com.yunhwan.wit.infrastructure.summary.StubSummaryGenerator;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.data.redis.core.StringRedisTemplate;
 
 @Configuration
-@EnableConfigurationProperties(CurrentLocationProperties.class)
+@EnableConfigurationProperties({CurrentLocationProperties.class, LocationCacheProperties.class})
 public class RecommendationAssemblyConfig {
 
     @Bean
@@ -33,11 +39,28 @@ public class RecommendationAssemblyConfig {
     }
 
     @Bean
-    public LocationResolver locationResolver(
+    public DefaultLocationResolver defaultLocationResolver(
             RuleBasedLocationResolver ruleBasedLocationResolver,
             AiLocationFallbackResolver aiLocationFallbackResolver
     ) {
         return new DefaultLocationResolver(ruleBasedLocationResolver, aiLocationFallbackResolver);
+    }
+
+    @Bean
+    public LocationResolutionCache locationResolutionCache(
+            StringRedisTemplate redisTemplate,
+            ObjectMapper objectMapper,
+            LocationCacheProperties properties
+    ) {
+        return new RedisLocationResolutionCache(redisTemplate, objectMapper, properties);
+    }
+
+    @Bean
+    public LocationResolver locationResolver(
+            DefaultLocationResolver defaultLocationResolver,
+            LocationResolutionCache locationResolutionCache
+    ) {
+        return new CachingLocationResolver(defaultLocationResolver, locationResolutionCache);
     }
 
     @Bean
