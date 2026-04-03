@@ -14,14 +14,19 @@ import com.yunhwan.wit.domain.model.WeatherSnapshot;
 import com.yunhwan.wit.domain.model.WeatherType;
 import com.yunhwan.wit.domain.rule.OutfitRuleEngine;
 import com.yunhwan.wit.domain.rule.WeatherFailureFallbackDecisionProvider;
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 class RecommendationServiceTest {
 
     private final LocalDateTime currentTime = LocalDateTime.of(2026, 4, 2, 9, 0);
+    private final Clock clock = Clock.fixed(Instant.parse("2026-04-02T00:00:00Z"), ZoneId.of("Asia/Seoul"));
     private final CalendarEvent calendarEvent = new CalendarEvent(
             "event-1",
             "강남 회식",
@@ -47,7 +52,9 @@ class RecommendationServiceTest {
                 weatherClient,
                 new OutfitRuleEngine(),
                 new WeatherFailureFallbackDecisionProvider(),
-                new StubSummaryGenerator()
+                new StubSummaryGenerator(),
+                new InMemoryRecommendationCache(),
+                clock
         );
 
         RecommendationResult result = recommendationService.recommend(calendarEvent);
@@ -79,7 +86,9 @@ class RecommendationServiceTest {
                 weatherClient,
                 new OutfitRuleEngine(),
                 new WeatherFailureFallbackDecisionProvider(),
-                new StubSummaryGenerator()
+                new StubSummaryGenerator(),
+                new InMemoryRecommendationCache(),
+                clock
         );
 
         RecommendationResult result = recommendationService.recommend(calendarEvent);
@@ -103,7 +112,9 @@ class RecommendationServiceTest {
                 new FailingWeatherClient(),
                 ruleEngine,
                 fallbackDecisionProvider,
-                new StubSummaryGenerator()
+                new StubSummaryGenerator(),
+                new InMemoryRecommendationCache(),
+                clock
         );
 
         RecommendationResult result = recommendationService.recommend(calendarEvent);
@@ -138,7 +149,9 @@ class RecommendationServiceTest {
                 weatherClient,
                 new OutfitRuleEngine(),
                 new WeatherFailureFallbackDecisionProvider(),
-                new StubSummaryGenerator()
+                new StubSummaryGenerator(),
+                new InMemoryRecommendationCache(),
+                clock
         );
 
         RecommendationResult result = recommendationService.recommend(calendarEvent);
@@ -160,7 +173,9 @@ class RecommendationServiceTest {
                 new NullWeatherClient(),
                 ruleEngine,
                 fallbackDecisionProvider,
-                new StubSummaryGenerator()
+                new StubSummaryGenerator(),
+                new InMemoryRecommendationCache(),
+                clock
         );
 
         RecommendationResult result = recommendationService.recommend(calendarEvent);
@@ -190,12 +205,83 @@ class RecommendationServiceTest {
                 weatherClient,
                 new OutfitRuleEngine(),
                 new WeatherFailureFallbackDecisionProvider(),
-                new FailingSummaryGenerator()
+                new FailingSummaryGenerator(),
+                new InMemoryRecommendationCache(),
+                clock
         );
 
         RecommendationResult result = recommendationService.recommend(calendarEvent);
 
         assertThat(result.outfitDecision().aiSummary()).isEqualTo("우산을 챙기고 긴팔 + 가벼운 겉옷 차림으로 준비하면 됩니다.");
+    }
+
+    @Test
+    void 추천캐시_히트면_전체흐름을_다시_실행하지_않는다() {
+        RecommendationResult cachedResult = new RecommendationResult(
+                new OutfitDecision(
+                        true,
+                        RecommendedOutfitLevel.LONG_SLEEVE,
+                        "긴팔",
+                        "cached umbrella reason",
+                        "cached outfit reason",
+                        -3,
+                        "cached weather change",
+                        "cached summary"
+                ),
+                calendarEvent,
+                eventLocation(),
+                snapshot(currentLocation(), currentTime, 20, 20, 10, WeatherType.CLEAR),
+                snapshot(eventLocation(), calendarEvent.startAt(), 19, 19, 20, WeatherType.CLOUDY),
+                snapshot(eventLocation(), calendarEvent.endAt(), 18, 18, 40, WeatherType.CLOUDY),
+                false
+        );
+        InMemoryRecommendationCache recommendationCache = new InMemoryRecommendationCache();
+        recommendationCache.put(calendarEvent, LocalDateTime.of(2026, 4, 2, 9, 0), cachedResult);
+
+        RecommendationService recommendationService = new RecommendationService(
+                rawLocation -> {
+                    throw new AssertionError("resolver should not be called on cache hit");
+                },
+                this::currentLocation,
+                new FailingWeatherClient(),
+                new OutfitRuleEngine(),
+                new WeatherFailureFallbackDecisionProvider(),
+                new StubSummaryGenerator(),
+                recommendationCache,
+                clock
+        );
+
+        RecommendationResult result = recommendationService.recommend(calendarEvent);
+
+        assertThat(result).isEqualTo(cachedResult);
+    }
+
+    @Test
+    void 추천캐시_미스면_계산결과를_캐시에_저장한다() {
+        ResolvedLocation currentLocation = currentLocation();
+        ResolvedLocation eventLocation = eventLocation();
+        StubWeatherClient weatherClient = new StubWeatherClient();
+        InMemoryRecommendationCache recommendationCache = new InMemoryRecommendationCache();
+        weatherClient.setCurrentWeather(currentLocation, snapshot(currentLocation, currentTime, 24, 24, 10, WeatherType.CLEAR));
+        weatherClient.setTimedWeather(eventLocation, calendarEvent.startAt(),
+                snapshot(eventLocation, calendarEvent.startAt(), 21, 21, 20, WeatherType.CLOUDY));
+        weatherClient.setTimedWeather(eventLocation, calendarEvent.endAt(),
+                snapshot(eventLocation, calendarEvent.endAt(), 18, 18, 70, WeatherType.RAIN));
+
+        RecommendationService recommendationService = new RecommendationService(
+                rawLocation -> eventLocation,
+                () -> currentLocation,
+                weatherClient,
+                new OutfitRuleEngine(),
+                new WeatherFailureFallbackDecisionProvider(),
+                new StubSummaryGenerator(),
+                recommendationCache,
+                clock
+        );
+
+        RecommendationResult result = recommendationService.recommend(calendarEvent);
+
+        assertThat(recommendationCache.find(calendarEvent, LocalDateTime.of(2026, 4, 2, 9, 0))).contains(result);
     }
 
     private ResolvedLocation currentLocation() {
@@ -224,6 +310,29 @@ class RecommendationServiceTest {
         @Override
         public String generate(OutfitDecision outfitDecision) {
             throw new RuntimeException("summary failure");
+        }
+    }
+
+    private static final class InMemoryRecommendationCache implements RecommendationCache {
+
+        private final Map<String, RecommendationResult> store = new HashMap<>();
+
+        @Override
+        public Optional<RecommendationResult> find(CalendarEvent calendarEvent, LocalDateTime cacheTime) {
+            return Optional.ofNullable(store.get(key(calendarEvent, cacheTime)));
+        }
+
+        @Override
+        public void put(
+                CalendarEvent calendarEvent,
+                LocalDateTime cacheTime,
+                RecommendationResult recommendationResult
+        ) {
+            store.put(key(calendarEvent, cacheTime), recommendationResult);
+        }
+
+        private String key(CalendarEvent calendarEvent, LocalDateTime cacheTime) {
+            return calendarEvent.eventId() + "::" + cacheTime;
         }
     }
 
