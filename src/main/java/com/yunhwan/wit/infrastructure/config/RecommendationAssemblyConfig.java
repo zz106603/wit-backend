@@ -6,12 +6,14 @@ import com.yunhwan.wit.application.location.DefaultLocationResolver;
 import com.yunhwan.wit.application.location.LocationResolver;
 import com.yunhwan.wit.application.location.RuleBasedLocationResolver;
 import com.yunhwan.wit.application.recommendation.RecommendationService;
+import com.yunhwan.wit.application.summary.SummaryGenerator;
 import com.yunhwan.wit.application.weather.WeatherClient;
 import com.yunhwan.wit.domain.model.LocationResolvedBy;
 import com.yunhwan.wit.domain.model.ResolvedLocation;
 import com.yunhwan.wit.domain.rule.OutfitRuleEngine;
 import com.yunhwan.wit.domain.rule.WeatherFailureFallbackDecisionProvider;
 import com.yunhwan.wit.infrastructure.location.CurrentLocationProperties;
+import com.yunhwan.wit.infrastructure.summary.StubSummaryGenerator;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -62,19 +64,26 @@ public class RecommendationAssemblyConfig {
     }
 
     @Bean
+    public SummaryGenerator summaryGenerator() {
+        return new StubSummaryGenerator();
+    }
+
+    @Bean
     public RecommendationService recommendationService(
             LocationResolver locationResolver,
             CurrentLocationProvider currentLocationProvider,
             WeatherClient weatherClient,
             OutfitRuleEngine outfitRuleEngine,
-            WeatherFailureFallbackDecisionProvider weatherFailureFallbackDecisionProvider
+            WeatherFailureFallbackDecisionProvider weatherFailureFallbackDecisionProvider,
+            SummaryGenerator summaryGenerator
     ) {
         return new RecommendationService(
                 locationResolver,
                 currentLocationProvider,
                 weatherClient,
                 outfitRuleEngine,
-                weatherFailureFallbackDecisionProvider
+                weatherFailureFallbackDecisionProvider,
+                summaryGenerator
         );
     }
 }
