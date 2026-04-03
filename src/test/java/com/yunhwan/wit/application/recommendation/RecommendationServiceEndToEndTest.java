@@ -7,6 +7,7 @@ import com.yunhwan.wit.application.location.CurrentLocationProvider;
 import com.yunhwan.wit.application.location.DefaultLocationResolver;
 import com.yunhwan.wit.application.location.LocationResolver;
 import com.yunhwan.wit.application.location.RuleBasedLocationResolver;
+import com.yunhwan.wit.application.recommendation.RecommendationCache;
 import com.yunhwan.wit.application.summary.SummaryGenerator;
 import com.yunhwan.wit.application.weather.WeatherClient;
 import com.yunhwan.wit.domain.model.CalendarEvent;
@@ -18,13 +19,18 @@ import com.yunhwan.wit.domain.model.WeatherSnapshot;
 import com.yunhwan.wit.domain.model.WeatherType;
 import com.yunhwan.wit.domain.rule.OutfitRuleEngine;
 import com.yunhwan.wit.domain.rule.WeatherFailureFallbackDecisionProvider;
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 class RecommendationServiceEndToEndTest {
 
+    private final Clock clock = Clock.fixed(Instant.parse("2026-04-02T00:00:00Z"), ZoneId.of("Asia/Seoul"));
     private final CurrentLocationProvider currentLocationProvider = () -> ResolvedLocation.resolved(
             "현재 위치",
             "current",
@@ -66,7 +72,9 @@ class RecommendationServiceEndToEndTest {
                 weatherClient,
                 new OutfitRuleEngine(),
                 new WeatherFailureFallbackDecisionProvider(),
-                new StubSummaryGenerator()
+                new StubSummaryGenerator(),
+                new InMemoryRecommendationCache(),
+                clock
         );
 
         RecommendationResult result = service.recommend(event);
@@ -104,7 +112,9 @@ class RecommendationServiceEndToEndTest {
                 weatherClient,
                 new OutfitRuleEngine(),
                 new WeatherFailureFallbackDecisionProvider(),
-                new StubSummaryGenerator()
+                new StubSummaryGenerator(),
+                new InMemoryRecommendationCache(),
+                clock
         );
 
         RecommendationResult result = service.recommend(event);
@@ -132,7 +142,9 @@ class RecommendationServiceEndToEndTest {
                 new FailingWeatherClient(),
                 new OutfitRuleEngine(),
                 fallbackDecisionProvider,
-                new StubSummaryGenerator()
+                new StubSummaryGenerator(),
+                new InMemoryRecommendationCache(),
+                clock
         );
 
         RecommendationResult result = service.recommend(event);
@@ -223,6 +235,25 @@ class RecommendationServiceEndToEndTest {
         public String generate(OutfitDecision outfitDecision) {
             String umbrellaText = outfitDecision.needUmbrella() ? "우산을 챙기고" : "우산 없이";
             return umbrellaText + " " + outfitDecision.recommendedOutfitText() + " 차림을 추천합니다.";
+        }
+    }
+
+    private static final class InMemoryRecommendationCache implements RecommendationCache {
+
+        private final Map<String, RecommendationResult> store = new HashMap<>();
+
+        @Override
+        public Optional<RecommendationResult> find(CalendarEvent calendarEvent, LocalDateTime cacheTime) {
+            return Optional.ofNullable(store.get(calendarEvent.eventId() + "::" + cacheTime));
+        }
+
+        @Override
+        public void put(
+                CalendarEvent calendarEvent,
+                LocalDateTime cacheTime,
+                RecommendationResult recommendationResult
+        ) {
+            store.put(calendarEvent.eventId() + "::" + cacheTime, recommendationResult);
         }
     }
 }
