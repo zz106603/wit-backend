@@ -12,8 +12,12 @@ import com.yunhwan.wit.domain.model.WeatherSnapshot;
 import com.yunhwan.wit.domain.rule.OutfitRuleEngine;
 import com.yunhwan.wit.domain.rule.WeatherFailureFallbackDecisionProvider;
 import java.util.Objects;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class RecommendationService {
+
+    private static final Logger log = LoggerFactory.getLogger(RecommendationService.class);
 
     private final LocationResolver locationResolver;
     private final CurrentLocationProvider currentLocationProvider;
@@ -111,6 +115,12 @@ public class RecommendationService {
         try {
             return outfitDecision.withAiSummary(summaryGenerator.generate(outfitDecision));
         } catch (RuntimeException exception) {
+            log.warn(
+                    "AI summary generation failed. fallback summary will be used. needUmbrella={}, recommendedOutfitLevel={}",
+                    outfitDecision.needUmbrella(),
+                    outfitDecision.recommendedOutfitLevel(),
+                    exception
+            );
             return outfitDecision.withAiSummary(buildFallbackSummary(outfitDecision));
         }
     }
