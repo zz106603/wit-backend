@@ -2,6 +2,7 @@ package com.yunhwan.wit.application.recommendation;
 
 import com.yunhwan.wit.application.location.CurrentLocationProvider;
 import com.yunhwan.wit.application.location.LocationResolver;
+import com.yunhwan.wit.application.summary.SummaryGenerator;
 import com.yunhwan.wit.application.weather.WeatherClient;
 import com.yunhwan.wit.domain.model.CalendarEvent;
 import com.yunhwan.wit.domain.model.LocationResolutionStatus;
@@ -19,13 +20,15 @@ public class RecommendationService {
     private final WeatherClient weatherClient;
     private final OutfitRuleEngine outfitRuleEngine;
     private final WeatherFailureFallbackDecisionProvider weatherFailureFallbackDecisionProvider;
+    private final SummaryGenerator summaryGenerator;
 
     public RecommendationService(
             LocationResolver locationResolver,
             CurrentLocationProvider currentLocationProvider,
             WeatherClient weatherClient,
             OutfitRuleEngine outfitRuleEngine,
-            WeatherFailureFallbackDecisionProvider weatherFailureFallbackDecisionProvider
+            WeatherFailureFallbackDecisionProvider weatherFailureFallbackDecisionProvider,
+            SummaryGenerator summaryGenerator
     ) {
         this.locationResolver = Objects.requireNonNull(locationResolver, "locationResolver must not be null");
         this.currentLocationProvider = Objects.requireNonNull(
@@ -38,6 +41,7 @@ public class RecommendationService {
                 weatherFailureFallbackDecisionProvider,
                 "weatherFailureFallbackDecisionProvider must not be null"
         );
+        this.summaryGenerator = Objects.requireNonNull(summaryGenerator, "summaryGenerator must not be null");
     }
 
     public RecommendationResult recommend(CalendarEvent calendarEvent) {
@@ -52,7 +56,7 @@ public class RecommendationService {
 
         if (currentWeather == null || startWeather == null || endWeather == null) {
             return new RecommendationResult(
-                    weatherFailureFallbackDecisionProvider.provide(),
+                    summarize(weatherFailureFallbackDecisionProvider.provide()),
                     calendarEvent,
                     resolvedLocation,
                     null,
@@ -62,7 +66,7 @@ public class RecommendationService {
             );
         }
 
-        OutfitDecision outfitDecision = outfitRuleEngine.decide(currentWeather, startWeather, endWeather);
+        OutfitDecision outfitDecision = summarize(outfitRuleEngine.decide(currentWeather, startWeather, endWeather));
 
         return new RecommendationResult(
                 outfitDecision,
@@ -101,5 +105,18 @@ public class RecommendationService {
         } catch (RuntimeException exception) {
             return null;
         }
+    }
+
+    private OutfitDecision summarize(OutfitDecision outfitDecision) {
+        try {
+            return outfitDecision.withAiSummary(summaryGenerator.generate(outfitDecision));
+        } catch (RuntimeException exception) {
+            return outfitDecision.withAiSummary(buildFallbackSummary(outfitDecision));
+        }
+    }
+
+    private String buildFallbackSummary(OutfitDecision outfitDecision) {
+        String umbrellaText = outfitDecision.needUmbrella() ? "우산을 챙기고" : "우산은 없어도 되고";
+        return umbrellaText + " " + outfitDecision.recommendedOutfitText() + " 차림으로 준비하면 됩니다.";
     }
 }
