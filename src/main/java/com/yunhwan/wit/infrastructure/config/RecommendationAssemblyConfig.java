@@ -7,10 +7,12 @@ import com.yunhwan.wit.application.location.DefaultLocationResolver;
 import com.yunhwan.wit.application.location.LocationResolutionCache;
 import com.yunhwan.wit.application.location.LocationResolver;
 import com.yunhwan.wit.application.location.RuleBasedLocationResolver;
+import com.yunhwan.wit.application.recommendation.RecommendationCache;
 import com.yunhwan.wit.application.recommendation.RecommendationService;
 import com.yunhwan.wit.application.summary.SummaryGenerator;
 import com.yunhwan.wit.application.weather.WeatherClient;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.time.Clock;
 import com.yunhwan.wit.domain.model.LocationResolvedBy;
 import com.yunhwan.wit.domain.model.ResolvedLocation;
 import com.yunhwan.wit.domain.rule.OutfitRuleEngine;
@@ -18,6 +20,8 @@ import com.yunhwan.wit.domain.rule.WeatherFailureFallbackDecisionProvider;
 import com.yunhwan.wit.infrastructure.location.CurrentLocationProperties;
 import com.yunhwan.wit.infrastructure.location.LocationCacheProperties;
 import com.yunhwan.wit.infrastructure.location.RedisLocationResolutionCache;
+import com.yunhwan.wit.infrastructure.recommendation.RecommendationCacheProperties;
+import com.yunhwan.wit.infrastructure.recommendation.RedisRecommendationCache;
 import com.yunhwan.wit.infrastructure.summary.StubSummaryGenerator;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -25,7 +29,11 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.core.StringRedisTemplate;
 
 @Configuration
-@EnableConfigurationProperties({CurrentLocationProperties.class, LocationCacheProperties.class})
+@EnableConfigurationProperties({
+        CurrentLocationProperties.class,
+        LocationCacheProperties.class,
+        RecommendationCacheProperties.class
+})
 public class RecommendationAssemblyConfig {
 
     @Bean
@@ -92,13 +100,24 @@ public class RecommendationAssemblyConfig {
     }
 
     @Bean
+    public RecommendationCache recommendationCache(
+            StringRedisTemplate redisTemplate,
+            ObjectMapper objectMapper,
+            RecommendationCacheProperties properties
+    ) {
+        return new RedisRecommendationCache(redisTemplate, objectMapper, properties);
+    }
+
+    @Bean
     public RecommendationService recommendationService(
             LocationResolver locationResolver,
             CurrentLocationProvider currentLocationProvider,
             WeatherClient weatherClient,
             OutfitRuleEngine outfitRuleEngine,
             WeatherFailureFallbackDecisionProvider weatherFailureFallbackDecisionProvider,
-            SummaryGenerator summaryGenerator
+            SummaryGenerator summaryGenerator,
+            RecommendationCache recommendationCache,
+            Clock clock
     ) {
         return new RecommendationService(
                 locationResolver,
@@ -106,7 +125,9 @@ public class RecommendationAssemblyConfig {
                 weatherClient,
                 outfitRuleEngine,
                 weatherFailureFallbackDecisionProvider,
-                summaryGenerator
+                summaryGenerator,
+                recommendationCache,
+                clock
         );
     }
 }
