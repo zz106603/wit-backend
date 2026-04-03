@@ -3,6 +3,7 @@ package com.yunhwan.wit.application.recommendation;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.yunhwan.wit.application.location.LocationResolver;
+import com.yunhwan.wit.application.summary.SummaryGenerator;
 import com.yunhwan.wit.application.weather.WeatherClient;
 import com.yunhwan.wit.domain.model.CalendarEvent;
 import com.yunhwan.wit.domain.model.LocationResolvedBy;
@@ -45,7 +46,8 @@ class RecommendationServiceTest {
                 () -> currentLocation,
                 weatherClient,
                 new OutfitRuleEngine(),
-                new WeatherFailureFallbackDecisionProvider()
+                new WeatherFailureFallbackDecisionProvider(),
+                new StubSummaryGenerator()
         );
 
         RecommendationResult result = recommendationService.recommend(calendarEvent);
@@ -58,6 +60,7 @@ class RecommendationServiceTest {
         assertThat(result.startWeather().targetTime()).isEqualTo(calendarEvent.startAt());
         assertThat(result.endWeather().targetTime()).isEqualTo(calendarEvent.endAt());
         assertThat(result.outfitDecision().needUmbrella()).isTrue();
+        assertThat(result.outfitDecision().aiSummary()).isEqualTo("우산을 챙기고 긴팔 + 가벼운 겉옷 차림을 추천합니다.");
     }
 
     @Test
@@ -75,7 +78,8 @@ class RecommendationServiceTest {
                 () -> currentLocation,
                 weatherClient,
                 new OutfitRuleEngine(),
-                new WeatherFailureFallbackDecisionProvider()
+                new WeatherFailureFallbackDecisionProvider(),
+                new StubSummaryGenerator()
         );
 
         RecommendationResult result = recommendationService.recommend(calendarEvent);
@@ -98,7 +102,8 @@ class RecommendationServiceTest {
                 () -> currentLocation,
                 new FailingWeatherClient(),
                 ruleEngine,
-                fallbackDecisionProvider
+                fallbackDecisionProvider,
+                new StubSummaryGenerator()
         );
 
         RecommendationResult result = recommendationService.recommend(calendarEvent);
@@ -110,6 +115,7 @@ class RecommendationServiceTest {
         assertThat(result.endWeather()).isNull();
         assertThat(decision.recommendedOutfitLevel()).isEqualTo(RecommendedOutfitLevel.HEAVY_OUTER);
         assertThat(decision.needUmbrella()).isTrue();
+        assertThat(decision.aiSummary()).isEqualTo("우산을 챙기고 두꺼운 겉옷 차림을 추천합니다.");
         assertThat(ruleEngine.called).isFalse();
         assertThat(fallbackDecisionProvider.called).isTrue();
     }
@@ -131,7 +137,8 @@ class RecommendationServiceTest {
                 () -> currentLocation,
                 weatherClient,
                 new OutfitRuleEngine(),
-                new WeatherFailureFallbackDecisionProvider()
+                new WeatherFailureFallbackDecisionProvider(),
+                new StubSummaryGenerator()
         );
 
         RecommendationResult result = recommendationService.recommend(calendarEvent);
@@ -152,7 +159,8 @@ class RecommendationServiceTest {
                 () -> currentLocation,
                 new NullWeatherClient(),
                 ruleEngine,
-                fallbackDecisionProvider
+                fallbackDecisionProvider,
+                new StubSummaryGenerator()
         );
 
         RecommendationResult result = recommendationService.recommend(calendarEvent);
@@ -165,6 +173,31 @@ class RecommendationServiceTest {
         assertThat(fallbackDecisionProvider.called).isTrue();
     }
 
+    @Test
+    void 요약생성이_실패해도_fallback_summary를_넣어_결과를_반환한다() {
+        ResolvedLocation currentLocation = currentLocation();
+        ResolvedLocation eventLocation = eventLocation();
+        StubWeatherClient weatherClient = new StubWeatherClient();
+        weatherClient.setCurrentWeather(currentLocation, snapshot(currentLocation, currentTime, 24, 24, 10, WeatherType.CLEAR));
+        weatherClient.setTimedWeather(eventLocation, calendarEvent.startAt(),
+                snapshot(eventLocation, calendarEvent.startAt(), 21, 21, 20, WeatherType.CLOUDY));
+        weatherClient.setTimedWeather(eventLocation, calendarEvent.endAt(),
+                snapshot(eventLocation, calendarEvent.endAt(), 18, 18, 70, WeatherType.RAIN));
+
+        RecommendationService recommendationService = new RecommendationService(
+                rawLocation -> eventLocation,
+                () -> currentLocation,
+                weatherClient,
+                new OutfitRuleEngine(),
+                new WeatherFailureFallbackDecisionProvider(),
+                new FailingSummaryGenerator()
+        );
+
+        RecommendationResult result = recommendationService.recommend(calendarEvent);
+
+        assertThat(result.outfitDecision().aiSummary()).isEqualTo("우산을 챙기고 긴팔 + 가벼운 겉옷 차림으로 준비하면 됩니다.");
+    }
+
     private ResolvedLocation currentLocation() {
         return ResolvedLocation.resolved(
                 "현재 위치",
@@ -175,6 +208,23 @@ class RecommendationServiceTest {
                 1.0,
                 LocationResolvedBy.RULE
         );
+    }
+
+    private static final class StubSummaryGenerator implements SummaryGenerator {
+
+        @Override
+        public String generate(OutfitDecision outfitDecision) {
+            String umbrellaText = outfitDecision.needUmbrella() ? "우산을 챙기고" : "우산 없이";
+            return umbrellaText + " " + outfitDecision.recommendedOutfitText() + " 차림을 추천합니다.";
+        }
+    }
+
+    private static final class FailingSummaryGenerator implements SummaryGenerator {
+
+        @Override
+        public String generate(OutfitDecision outfitDecision) {
+            throw new RuntimeException("summary failure");
+        }
     }
 
     private ResolvedLocation eventLocation() {

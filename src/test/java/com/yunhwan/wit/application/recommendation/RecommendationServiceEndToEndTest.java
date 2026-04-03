@@ -7,6 +7,7 @@ import com.yunhwan.wit.application.location.CurrentLocationProvider;
 import com.yunhwan.wit.application.location.DefaultLocationResolver;
 import com.yunhwan.wit.application.location.LocationResolver;
 import com.yunhwan.wit.application.location.RuleBasedLocationResolver;
+import com.yunhwan.wit.application.summary.SummaryGenerator;
 import com.yunhwan.wit.application.weather.WeatherClient;
 import com.yunhwan.wit.domain.model.CalendarEvent;
 import com.yunhwan.wit.domain.model.LocationResolvedBy;
@@ -64,7 +65,8 @@ class RecommendationServiceEndToEndTest {
                 currentLocationProvider,
                 weatherClient,
                 new OutfitRuleEngine(),
-                new WeatherFailureFallbackDecisionProvider()
+                new WeatherFailureFallbackDecisionProvider(),
+                new StubSummaryGenerator()
         );
 
         RecommendationResult result = service.recommend(event);
@@ -77,6 +79,7 @@ class RecommendationServiceEndToEndTest {
         assertThat(result.outfitDecision().recommendedOutfitLevel())
                 .isEqualTo(RecommendedOutfitLevel.LONG_SLEEVE_WITH_LIGHT_OUTER);
         assertThat(result.outfitDecision().weatherChangeSummary()).contains("더 쌀쌀");
+        assertThat(result.outfitDecision().aiSummary()).isEqualTo("우산을 챙기고 긴팔 + 가벼운 겉옷 차림을 추천합니다.");
     }
 
     @Test
@@ -100,7 +103,8 @@ class RecommendationServiceEndToEndTest {
                 currentLocationProvider,
                 weatherClient,
                 new OutfitRuleEngine(),
-                new WeatherFailureFallbackDecisionProvider()
+                new WeatherFailureFallbackDecisionProvider(),
+                new StubSummaryGenerator()
         );
 
         RecommendationResult result = service.recommend(event);
@@ -127,7 +131,8 @@ class RecommendationServiceEndToEndTest {
                 currentLocationProvider,
                 new FailingWeatherClient(),
                 new OutfitRuleEngine(),
-                fallbackDecisionProvider
+                fallbackDecisionProvider,
+                new StubSummaryGenerator()
         );
 
         RecommendationResult result = service.recommend(event);
@@ -138,6 +143,7 @@ class RecommendationServiceEndToEndTest {
         assertThat(result.endWeather()).isNull();
         assertThat(result.outfitDecision().recommendedOutfitLevel()).isEqualTo(RecommendedOutfitLevel.HEAVY_OUTER);
         assertThat(result.outfitDecision().needUmbrella()).isTrue();
+        assertThat(result.outfitDecision().aiSummary()).isEqualTo("우산을 챙기고 두꺼운 겉옷 차림을 추천합니다.");
         assertThat(fallbackDecisionProvider.called).isTrue();
     }
 
@@ -208,6 +214,15 @@ class RecommendationServiceEndToEndTest {
         public OutfitDecision provide() {
             called = true;
             return super.provide();
+        }
+    }
+
+    private static final class StubSummaryGenerator implements SummaryGenerator {
+
+        @Override
+        public String generate(OutfitDecision outfitDecision) {
+            String umbrellaText = outfitDecision.needUmbrella() ? "우산을 챙기고" : "우산 없이";
+            return umbrellaText + " " + outfitDecision.recommendedOutfitText() + " 차림을 추천합니다.";
         }
     }
 }
