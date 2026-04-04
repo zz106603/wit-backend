@@ -21,6 +21,7 @@ class GoogleIntegrationServiceTest {
                 new FixedLoginUrlGoogleOAuthClient("https://accounts.google.com/o/oauth2/v2/auth?client_id=test"),
                 new RecordingGoogleCalendarClient(List.of()),
                 new InMemoryGoogleIntegrationRepository(),
+                () -> "default-user",
                 clock
         );
 
@@ -47,6 +48,7 @@ class GoogleIntegrationServiceTest {
                 new StubGoogleOAuthClient(),
                 calendarClient,
                 repository,
+                () -> "default-user",
                 clock
         );
 
@@ -55,7 +57,7 @@ class GoogleIntegrationServiceTest {
         assertThat(result.connected()).isTrue();
         assertThat(result.calendarEvents()).hasSize(1);
         assertThat(result.googleIntegration().email()).isEqualTo("user@wit.local");
-        assertThat(repository.findByUserId(GoogleIntegrationService.DEFAULT_USER_ID)).isPresent();
+        assertThat(repository.findByUserId("default-user")).isPresent();
         assertThat(calendarClient.lastLimit).isEqualTo(3);
     }
 
@@ -63,7 +65,7 @@ class GoogleIntegrationServiceTest {
     void 저장된_연동정보가_있으면_이후_캘린더_이벤트를_재조회한다() {
         InMemoryGoogleIntegrationRepository repository = new InMemoryGoogleIntegrationRepository();
         repository.save(new GoogleIntegration(
-                GoogleIntegrationService.DEFAULT_USER_ID,
+                "default-user",
                 "user@wit.local",
                 "access-token",
                 "refresh-token",
@@ -83,6 +85,7 @@ class GoogleIntegrationServiceTest {
                 new FixedLoginUrlGoogleOAuthClient("unused"),
                 calendarClient,
                 repository,
+                () -> "default-user",
                 clock
         );
 
