@@ -4,6 +4,7 @@ import com.yunhwan.wit.application.google.GoogleCalendarClient;
 import com.yunhwan.wit.application.google.GoogleIntegrationRepository;
 import com.yunhwan.wit.application.google.GoogleIntegrationService;
 import com.yunhwan.wit.application.google.GoogleOAuthClient;
+import com.yunhwan.wit.application.google.GoogleIntegrationUserProvider;
 import com.yunhwan.wit.infrastructure.google.GoogleOAuthProperties;
 import com.yunhwan.wit.infrastructure.google.InMemoryGoogleIntegrationRepository;
 import com.yunhwan.wit.infrastructure.google.StubGoogleCalendarClient;
@@ -33,16 +34,23 @@ public class GoogleIntegrationConfig {
     }
 
     @Bean
+    public GoogleIntegrationUserProvider googleIntegrationUserProvider() {
+        return () -> "default-user";
+    }
+
+    @Bean
     public GoogleIntegrationService googleIntegrationService(
             GoogleOAuthClient googleOAuthClient,
             GoogleCalendarClient googleCalendarClient,
             GoogleIntegrationRepository googleIntegrationRepository,
+            GoogleIntegrationUserProvider googleIntegrationUserProvider,
             Clock clock
     ) {
         return new GoogleIntegrationService(
                 googleOAuthClient,
                 googleCalendarClient,
                 googleIntegrationRepository,
+                googleIntegrationUserProvider,
                 clock
         );
     }

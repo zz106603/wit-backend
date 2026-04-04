@@ -8,18 +8,19 @@ import java.util.Objects;
 
 public class GoogleIntegrationService {
 
-    static final String DEFAULT_USER_ID = "default-user";
     private static final int DEFAULT_EVENT_LIMIT = 3;
 
     private final GoogleOAuthClient googleOAuthClient;
     private final GoogleCalendarClient googleCalendarClient;
     private final GoogleIntegrationRepository googleIntegrationRepository;
+    private final GoogleIntegrationUserProvider googleIntegrationUserProvider;
     private final Clock clock;
 
     public GoogleIntegrationService(
             GoogleOAuthClient googleOAuthClient,
             GoogleCalendarClient googleCalendarClient,
             GoogleIntegrationRepository googleIntegrationRepository,
+            GoogleIntegrationUserProvider googleIntegrationUserProvider,
             Clock clock
     ) {
         this.googleOAuthClient = Objects.requireNonNull(googleOAuthClient, "googleOAuthClient must not be null");
@@ -27,6 +28,10 @@ public class GoogleIntegrationService {
         this.googleIntegrationRepository = Objects.requireNonNull(
                 googleIntegrationRepository,
                 "googleIntegrationRepository must not be null"
+        );
+        this.googleIntegrationUserProvider = Objects.requireNonNull(
+                googleIntegrationUserProvider,
+                "googleIntegrationUserProvider must not be null"
         );
         this.clock = Objects.requireNonNull(clock, "clock must not be null");
     }
@@ -39,9 +44,10 @@ public class GoogleIntegrationService {
         Objects.requireNonNull(command, "command must not be null");
 
         LocalDateTime now = LocalDateTime.now(clock);
+        String userId = googleIntegrationUserProvider.getCurrentUserId();
         GoogleOAuthToken googleOAuthToken = googleOAuthClient.exchangeCode(command.code());
         GoogleIntegration googleIntegration = new GoogleIntegration(
-                DEFAULT_USER_ID,
+                userId,
                 googleOAuthToken.email(),
                 googleOAuthToken.accessToken(),
                 googleOAuthToken.refreshToken(),
@@ -60,7 +66,7 @@ public class GoogleIntegrationService {
     }
 
     public List<CalendarEvent> getUpcomingEvents() {
-        return googleIntegrationRepository.findByUserId(DEFAULT_USER_ID)
+        return googleIntegrationRepository.findByUserId(googleIntegrationUserProvider.getCurrentUserId())
                 .map(googleIntegration -> googleCalendarClient.fetchUpcomingEvents(
                         googleIntegration,
                         LocalDateTime.now(clock),
