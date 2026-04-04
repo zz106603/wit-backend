@@ -23,3 +23,11 @@ wit:
   recommendation:
     cache:
       ttl: ${RECOMMENDATION_CACHE_TTL:30m}
+  google:
+    oauth:
+      client-id: ${GOOGLE_CLIENT_ID:stub-google-client}
+      redirect-uri: ${GOOGLE_REDIRECT_URI:http://localhost:8080/api/integrations/google/callback}
+      scope: ${GOOGLE_SCOPE:https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/userinfo.email}
+      authorization-base-url: ${GOOGLE_AUTHORIZATION_BASE_URL:https://accounts.google.com/o/oauth2/v2/auth}
+      state: ${GOOGLE_OAUTH_STATE:wit-google-state}
+      access-token-expiry: ${GOOGLE_ACCESS_TOKEN_EXPIRY:1h}
