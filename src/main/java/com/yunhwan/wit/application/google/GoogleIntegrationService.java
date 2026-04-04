@@ -1,0 +1,71 @@
+package com.yunhwan.wit.application.google;
+
+import com.yunhwan.wit.domain.model.CalendarEvent;
+import java.time.Clock;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Objects;
+
+public class GoogleIntegrationService {
+
+    static final String DEFAULT_USER_ID = "default-user";
+    private static final int DEFAULT_EVENT_LIMIT = 3;
+
+    private final GoogleOAuthClient googleOAuthClient;
+    private final GoogleCalendarClient googleCalendarClient;
+    private final GoogleIntegrationRepository googleIntegrationRepository;
+    private final Clock clock;
+
+    public GoogleIntegrationService(
+            GoogleOAuthClient googleOAuthClient,
+            GoogleCalendarClient googleCalendarClient,
+            GoogleIntegrationRepository googleIntegrationRepository,
+            Clock clock
+    ) {
+        this.googleOAuthClient = Objects.requireNonNull(googleOAuthClient, "googleOAuthClient must not be null");
+        this.googleCalendarClient = Objects.requireNonNull(googleCalendarClient, "googleCalendarClient must not be null");
+        this.googleIntegrationRepository = Objects.requireNonNull(
+                googleIntegrationRepository,
+                "googleIntegrationRepository must not be null"
+        );
+        this.clock = Objects.requireNonNull(clock, "clock must not be null");
+    }
+
+    public GoogleLoginUrlResult getLoginUrl() {
+        return new GoogleLoginUrlResult(googleOAuthClient.buildLoginUrl());
+    }
+
+    public GoogleConnectionResult connect(GoogleCallbackCommand command) {
+        Objects.requireNonNull(command, "command must not be null");
+
+        LocalDateTime now = LocalDateTime.now(clock);
+        GoogleOAuthToken googleOAuthToken = googleOAuthClient.exchangeCode(command.code());
+        GoogleIntegration googleIntegration = new GoogleIntegration(
+                DEFAULT_USER_ID,
+                googleOAuthToken.email(),
+                googleOAuthToken.accessToken(),
+                googleOAuthToken.refreshToken(),
+                googleOAuthToken.accessTokenExpiresAt(),
+                now
+        );
+        googleIntegrationRepository.save(googleIntegration);
+
+        List<CalendarEvent> calendarEvents = googleCalendarClient.fetchUpcomingEvents(
+                googleIntegration,
+                now,
+                DEFAULT_EVENT_LIMIT
+        );
+
+        return new GoogleConnectionResult(true, googleIntegration, calendarEvents);
+    }
+
+    public List<CalendarEvent> getUpcomingEvents() {
+        return googleIntegrationRepository.findByUserId(DEFAULT_USER_ID)
+                .map(googleIntegration -> googleCalendarClient.fetchUpcomingEvents(
+                        googleIntegration,
+                        LocalDateTime.now(clock),
+                        DEFAULT_EVENT_LIMIT
+                ))
+                .orElse(List.of());
+    }
+}
