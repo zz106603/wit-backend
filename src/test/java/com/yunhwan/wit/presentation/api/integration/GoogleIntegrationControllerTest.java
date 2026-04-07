@@ -2,15 +2,14 @@ package com.yunhwan.wit.presentation.api.integration;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
-import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.yunhwan.wit.application.google.GoogleConnectionResult;
 import com.yunhwan.wit.application.google.GoogleIntegration;
 import com.yunhwan.wit.application.google.GoogleIntegrationService;
 import com.yunhwan.wit.application.google.GoogleLoginUrlResult;
+import com.yunhwan.wit.infrastructure.config.SecurityConfig;
 import com.yunhwan.wit.presentation.api.GlobalExceptionHandler;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -23,8 +22,8 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(GoogleIntegrationController.class)
-@AutoConfigureMockMvc(addFilters = false)
-@Import(GlobalExceptionHandler.class)
+@AutoConfigureMockMvc
+@Import({GlobalExceptionHandler.class, SecurityConfig.class})
 class GoogleIntegrationControllerTest {
 
     @Autowired
@@ -58,24 +57,22 @@ class GoogleIntegrationControllerTest {
                         List.of()
                 ));
 
-        mockMvc.perform(post("/api/integrations/google/callback")
-                        .contentType(APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "code":"oauth-code"
-                                }
-                                """))
+        mockMvc.perform(get("/api/integrations/google/callback")
+                        .param("code", "oauth-code")
+                        .param("state", "oauth-state"))
                 .andExpect(status().isOk());
     }
 
     @Test
     void callback_code가_없으면_400을_반환한다() throws Exception {
-        mockMvc.perform(post("/api/integrations/google/callback")
-                        .contentType(APPLICATION_JSON)
-                        .content("""
-                                {
-                                }
-                                """))
+        mockMvc.perform(get("/api/integrations/google/callback")
+                        .param("state", "oauth-state"))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void 다른_API는_인증없으면_401을_반환한다() throws Exception {
+        mockMvc.perform(get("/api/recommendations/home"))
+                .andExpect(status().isUnauthorized());
     }
 }
