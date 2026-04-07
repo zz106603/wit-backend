@@ -1,0 +1,133 @@
+package com.yunhwan.wit.infrastructure.google;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.startsWith;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.queryParam;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
+
+import com.yunhwan.wit.application.google.GoogleIntegration;
+import com.yunhwan.wit.domain.model.CalendarEvent;
+import java.time.LocalDateTime;
+import java.util.List;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.client.MockRestServiceServer;
+import org.springframework.web.client.RestClient;
+
+class HttpGoogleCalendarClientTest {
+
+    private MockRestServiceServer server;
+    private HttpGoogleCalendarClient googleCalendarClient;
+
+    @BeforeEach
+    void setUp() {
+        RestClient.Builder builder = RestClient.builder();
+        server = MockRestServiceServer.bindTo(builder).build();
+
+        googleCalendarClient = new HttpGoogleCalendarClient(
+                builder.baseUrl("https://www.googleapis.test").build(),
+                new GoogleCalendarProperties(
+                        "https://www.googleapis.test",
+                        "/calendar/v3/calendars/primary/events",
+                        "Asia/Seoul"
+                )
+        );
+    }
+
+    @Test
+    void Google_Calendar_다가오는_일정_3개를_CalendarEvent로_변환한다() {
+        server.expect(requestTo(startsWith("https://www.googleapis.test/calendar/v3/calendars/primary/events")))
+                .andExpect(method(HttpMethod.GET))
+                .andExpect(header(HttpHeaders.AUTHORIZATION, "Bearer access-token"))
+                .andExpect(queryParam("timeMin", "2026-04-07T00:00:00Z"))
+                .andExpect(queryParam("singleEvents", "true"))
+                .andExpect(queryParam("orderBy", "startTime"))
+                .andExpect(queryParam("maxResults", "3"))
+                .andExpect(queryParam("timeZone", "Asia/Seoul"))
+                .andRespond(withSuccess("""
+                        {
+                          "items": [
+                            {
+                              "id": "event-1",
+                              "status": "confirmed",
+                              "summary": "저녁 회식",
+                              "location": "강남",
+                              "start": { "dateTime": "2026-04-07T18:00:00+09:00" },
+                              "end": { "dateTime": "2026-04-07T20:00:00+09:00" }
+                            },
+                            {
+                              "id": "event-2",
+                              "status": "confirmed",
+                              "summary": "다음 미팅",
+                              "location": "판교",
+                              "start": { "dateTime": "2026-04-08T10:00:00+09:00" },
+                              "end": { "dateTime": "2026-04-08T11:00:00+09:00" }
+                            }
+                          ]
+                        }
+                        """, MediaType.APPLICATION_JSON));
+
+        List<CalendarEvent> events = googleCalendarClient.fetchUpcomingEvents(
+                googleIntegration(),
+                LocalDateTime.of(2026, 4, 7, 9, 0),
+                3
+        );
+
+        assertThat(events).hasSize(2);
+        assertThat(events.getFirst().eventId()).isEqualTo("event-1");
+        assertThat(events.getFirst().title()).isEqualTo("저녁 회식");
+        assertThat(events.getFirst().startAt()).isEqualTo(LocalDateTime.of(2026, 4, 7, 18, 0));
+        assertThat(events.getFirst().endAt()).isEqualTo(LocalDateTime.of(2026, 4, 7, 20, 0));
+        assertThat(events.getFirst().rawLocation()).isEqualTo("강남");
+        server.verify();
+    }
+
+    @Test
+    void 취소된_일정과_시작시각이_없는_일정은_제외한다() {
+        server.expect(requestTo(startsWith("https://www.googleapis.test/calendar/v3/calendars/primary/events")))
+                .andRespond(withSuccess("""
+                        {
+                          "items": [
+                            {
+                              "id": "cancelled-event",
+                              "status": "cancelled",
+                              "summary": "취소 일정",
+                              "start": { "dateTime": "2026-04-07T18:00:00+09:00" },
+                              "end": { "dateTime": "2026-04-07T20:00:00+09:00" }
+                            },
+                            {
+                              "id": "invalid-event",
+                              "status": "confirmed",
+                              "summary": "시간 없음"
+                            }
+                          ]
+                        }
+                        """, MediaType.APPLICATION_JSON));
+
+        List<CalendarEvent> events = googleCalendarClient.fetchUpcomingEvents(
+                googleIntegration(),
+                LocalDateTime.of(2026, 4, 7, 9, 0),
+                3
+        );
+
+        assertThat(events).isEmpty();
+        server.verify();
+    }
+
+    private GoogleIntegration googleIntegration() {
+        return new GoogleIntegration(
+                "default-user",
+                "user@example.com",
+                "access-token",
+                "refresh-token",
+                LocalDateTime.of(2026, 4, 7, 10, 0),
+                LocalDateTime.of(2026, 4, 7, 9, 0)
+        );
+    }
+}
