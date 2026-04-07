@@ -132,7 +132,7 @@ AI Summary
 - lng
 - confidence
 - status (RESOLVED / APPROXIMATED / FAILED)
-- resolvedBy (RULE / AI)
+- resolvedBy (RULE / GOOGLE_PLACES / AI)
 ```
 
 ---

@@ -11,6 +11,7 @@
 - latitude
 - longitude
 - name (optional)
+- resolvedBy (RULE / GOOGLE_PLACES / AI)
 
 ### WeatherSnapshot
 - temperature
