@@ -34,7 +34,7 @@
 이 프로젝트는 다음을 자동화한다.
 
 - 캘린더 일정 조회
-- 일정 location 해석 (AI)
+- 일정 location 해석 (rule → Google Places → AI fallback)
 - 현재 위치 + 목적지 날씨 비교
 - 시간대별 날씨 변화 분석
 - 규칙 기반 판단
@@ -51,10 +51,10 @@
 
 ---
 
-### 2. 위치 해석 (AI 포함)
+### 2. 위치 해석 (Google Places + AI fallback)
 
 - "강남 회식" → "서울특별시 강남구"
-- 룰 기반 + AI fallback 구조
+- rule → Google Places → AI fallback 구조
 
 ---
 
@@ -92,7 +92,8 @@ Spring Boot Backend
  │ External APIs │
  ├───────────────┤
  │ Google Calendar │
- │ Weather API     │
+ │ Google Places   │
+ │ Open-Meteo      │
  │ AI API          │
  └───────────────┘
         ↓
@@ -117,7 +118,7 @@ Spring Boot Backend
 ### AI 역할
 
 1. Location 해석
-- 비정형 문자열 → 구조화된 지역 데이터
+- Google Places 실패/낮은 신뢰도 시 비정형 문자열 → 구조화된 지역 데이터
 1. 최종 요약 생성
 - 규칙 엔진 결과 → 자연어 설명
 
@@ -128,7 +129,7 @@ Spring Boot Backend
 | 영역 | 처리 방식 |
 | --- | --- |
 | 날씨, 시간 계산 | 코드 (Deterministic) |
-| 위치 해석 | AI |
+| 위치 해석 | Rule + Google Places + AI fallback |
 | 최종 설명 | AI |
 
 핵심:
@@ -164,7 +165,7 @@ Spring Boot Backend
 ```
 CalendarEvent
    ↓
-ResolvedLocation (AI 포함)
+ResolvedLocation (rule → Google Places → AI fallback)
    ↓
 WeatherSnapshot (3개)
    ↓
@@ -284,7 +285,8 @@ AI Summary
 ### External
 
 - Google Calendar API
-- Weather API
+- Google Places API
+- Open-Meteo
 - AI API
 
 ---

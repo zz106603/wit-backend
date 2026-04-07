@@ -95,7 +95,7 @@ AI는 아래 2가지 역할만 수행한다:
 ```
 CalendarEvent
    ↓
-ResolvedLocation (AI 포함)
+ResolvedLocation (rule → Google Places → AI fallback)
    ↓
 WeatherSnapshot (3개)
    ↓
@@ -215,6 +215,14 @@ AI Summary
 
 ## 7.1 Location 해석
 
+구조:
+
+```
+rule → Google Places → AI fallback
+```
+
+AI는 Google Places로도 충분히 해석되지 않는 경우의 fallback으로만 사용한다.
+
 ### 입력
 
 ```
@@ -333,7 +341,8 @@ iOS (SwiftUI)
 Spring Boot
    ↓
  ├─ Google Calendar API
- ├─ Weather API
+ ├─ Google Places API
+ ├─ Open-Meteo
  ├─ AI API
    ↓
 MySQL + Redis
@@ -369,7 +378,7 @@ Mobile: SwiftUI
 ```
 1. AI가 판단 로직을 수행하면 안 된다
 2. 규칙 엔진을 제거하면 안 된다
-3. location 해석은 AI fallback 구조 유지
+3. location 해석은 rule → Google Places → AI fallback 구조 유지
 4. 옷차림 추천은 기능적 기준 유지
 ```
 ---

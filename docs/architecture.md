@@ -25,7 +25,8 @@
 ## External Integrations (later stage)
 
 - Google Calendar
-- Weather API
+- Google Places
+- Open-Meteo
 - AI API
 
 ## Cache (later stage)
