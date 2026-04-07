@@ -5,6 +5,7 @@ import com.yunhwan.wit.domain.model.ResolvedLocation;
 import com.yunhwan.wit.domain.model.WeatherSnapshot;
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.Objects;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
@@ -69,10 +70,15 @@ public class HttpWeatherClient implements WeatherClient {
                     .uri(uriBuilder -> {
                         uriBuilder.path(path)
                                 .queryParam("latitude", location.lat())
-                                .queryParam("longitude", location.lng());
+                                .queryParam("longitude", location.lng())
+                                .queryParam("timezone", properties.timeZone());
 
                         if (includeTargetTime) {
-                            uriBuilder.queryParam("targetTime", requestedTargetTime);
+                            uriBuilder.queryParam("hourly", properties.hourlyFields())
+                                    .queryParam("start_hour", requestedTargetTime.truncatedTo(ChronoUnit.HOURS))
+                                    .queryParam("end_hour", requestedTargetTime.truncatedTo(ChronoUnit.HOURS));
+                        } else {
+                            uriBuilder.queryParam("current", properties.currentFields());
                         }
 
                         return uriBuilder.build();
