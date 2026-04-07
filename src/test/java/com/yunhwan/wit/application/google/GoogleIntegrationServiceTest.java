@@ -52,7 +52,7 @@ class GoogleIntegrationServiceTest {
                 clock
         );
 
-        GoogleConnectionResult result = service.connect(new GoogleCallbackCommand("oauth-code"));
+        GoogleConnectionResult result = service.connect(new GoogleCallbackCommand("oauth-code", "oauth-state"));
 
         assertThat(result.connected()).isTrue();
         assertThat(result.calendarEvents()).hasSize(1);
@@ -103,7 +103,7 @@ class GoogleIntegrationServiceTest {
         }
 
         @Override
-        public GoogleOAuthToken exchangeCode(String code) {
+        public GoogleOAuthToken exchangeCode(String code, String state) {
             return new GoogleOAuthToken(
                     "user@wit.local",
                     "access-token",
@@ -127,7 +127,7 @@ class GoogleIntegrationServiceTest {
         }
 
         @Override
-        public GoogleOAuthToken exchangeCode(String code) {
+        public GoogleOAuthToken exchangeCode(String code, String state) {
             throw new UnsupportedOperationException("exchangeCode is not used in this test");
         }
     }
