@@ -45,12 +45,18 @@ public class GoogleIntegrationService {
 
         LocalDateTime now = LocalDateTime.now(clock);
         String userId = googleIntegrationUserProvider.getCurrentUserId();
-        GoogleOAuthToken googleOAuthToken = googleOAuthClient.exchangeCode(command.code());
+        GoogleOAuthToken googleOAuthToken = googleOAuthClient.exchangeCode(command.code(), command.state());
+        String refreshToken = googleOAuthToken.refreshToken();
+        if (refreshToken == null || refreshToken.isBlank()) {
+            refreshToken = googleIntegrationRepository.findByUserId(userId)
+                    .map(GoogleIntegration::refreshToken)
+                    .orElseThrow(() -> new IllegalArgumentException("Google refresh token was not returned"));
+        }
         GoogleIntegration googleIntegration = new GoogleIntegration(
                 userId,
                 googleOAuthToken.email(),
                 googleOAuthToken.accessToken(),
-                googleOAuthToken.refreshToken(),
+                refreshToken,
                 googleOAuthToken.accessTokenExpiresAt(),
                 now
         );

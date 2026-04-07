@@ -4,5 +4,5 @@ public interface GoogleOAuthClient {
 
     String buildLoginUrl();
 
-    GoogleOAuthToken exchangeCode(String code);
+    GoogleOAuthToken exchangeCode(String code, String state);
 }
