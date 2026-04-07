@@ -5,27 +5,47 @@ import com.yunhwan.wit.application.google.GoogleIntegrationRepository;
 import com.yunhwan.wit.application.google.GoogleIntegrationService;
 import com.yunhwan.wit.application.google.GoogleOAuthClient;
 import com.yunhwan.wit.application.google.GoogleIntegrationUserProvider;
+import com.yunhwan.wit.infrastructure.google.GoogleCalendarProperties;
 import com.yunhwan.wit.infrastructure.google.GoogleOAuthProperties;
+import com.yunhwan.wit.infrastructure.google.HttpGoogleCalendarClient;
+import com.yunhwan.wit.infrastructure.google.HttpGoogleOAuthClient;
 import com.yunhwan.wit.infrastructure.google.InMemoryGoogleIntegrationRepository;
-import com.yunhwan.wit.infrastructure.google.StubGoogleCalendarClient;
-import com.yunhwan.wit.infrastructure.google.StubGoogleOAuthClient;
 import java.time.Clock;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.web.client.RestClient;
 
 @Configuration
-@EnableConfigurationProperties(GoogleOAuthProperties.class)
+@EnableConfigurationProperties({GoogleOAuthProperties.class, GoogleCalendarProperties.class})
 public class GoogleIntegrationConfig {
 
     @Bean
-    public GoogleOAuthClient googleOAuthClient(GoogleOAuthProperties properties, Clock clock) {
-        return new StubGoogleOAuthClient(properties, clock);
+    public RestClient googleOAuthRestClient(RestClient.Builder builder) {
+        return builder.build();
     }
 
     @Bean
-    public GoogleCalendarClient googleCalendarClient() {
-        return new StubGoogleCalendarClient();
+    public RestClient googleCalendarRestClient(RestClient.Builder builder, GoogleCalendarProperties properties) {
+        return builder.baseUrl(properties.baseUrl()).build();
+    }
+
+    @Bean
+    public GoogleOAuthClient googleOAuthClient(
+            @Qualifier("googleOAuthRestClient") RestClient googleOAuthRestClient,
+            GoogleOAuthProperties properties,
+            Clock clock
+    ) {
+        return new HttpGoogleOAuthClient(googleOAuthRestClient, properties, clock);
+    }
+
+    @Bean
+    public GoogleCalendarClient googleCalendarClient(
+            @Qualifier("googleCalendarRestClient") RestClient googleCalendarRestClient,
+            GoogleCalendarProperties properties
+    ) {
+        return new HttpGoogleCalendarClient(googleCalendarRestClient, properties);
     }
 
     @Bean
