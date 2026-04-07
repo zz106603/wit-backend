@@ -31,7 +31,7 @@ wit:
       current-path: ${OPEN_METEO_FORECAST_PATH:/v1/forecast}
       forecast-path: ${OPEN_METEO_FORECAST_PATH:/v1/forecast}
       time-zone: ${OPEN_METEO_TIME_ZONE:Asia/Seoul}
-      current-fields: ${OPEN_METEO_CURRENT_FIELDS:temperature_2m,apparent_temperature,precipitation,rain,weather_code}
+      current-fields: ${OPEN_METEO_CURRENT_FIELDS:temperature_2m,apparent_temperature,precipitation_probability,precipitation,rain,weather_code}
       hourly-fields: ${OPEN_METEO_HOURLY_FIELDS:temperature_2m,apparent_temperature,precipitation_probability,precipitation,rain,weather_code}
   recommendation:
     cache:
