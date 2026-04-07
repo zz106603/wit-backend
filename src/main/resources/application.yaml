@@ -8,6 +8,15 @@ wit:
   location:
     cache:
       ttl: ${LOCATION_CACHE_TTL:24h}
+    places:
+      google:
+        api-key: ${GOOGLE_PLACES_API_KEY:}
+        base-url: ${GOOGLE_PLACES_BASE_URL:https://places.googleapis.com}
+        text-search-path: ${GOOGLE_PLACES_TEXT_SEARCH_PATH:/v1/places:searchText}
+        language-code: ${GOOGLE_PLACES_LANGUAGE_CODE:ko}
+        region-code: ${GOOGLE_PLACES_REGION_CODE:KR}
+        page-size: ${GOOGLE_PLACES_PAGE_SIZE:1}
+        field-mask: ${GOOGLE_PLACES_FIELD_MASK:places.id,places.displayName,places.formattedAddress,places.location}
     current:
       normalized-query: ${CURRENT_LOCATION_NORMALIZED_QUERY:current}
       display-location: ${CURRENT_LOCATION_DISPLAY_LOCATION:서울특별시 강남구}
@@ -17,9 +26,13 @@ wit:
     cache:
       ttl: ${WEATHER_CACHE_TTL:1h}
     api:
-      base-url: ${WEATHER_API_BASE_URL:https://api.example.com}
-      current-path: ${WEATHER_API_CURRENT_PATH:/current}
-      forecast-path: ${WEATHER_API_FORECAST_PATH:/forecast}
+      provider: ${WEATHER_API_PROVIDER:open-meteo}
+      base-url: ${OPEN_METEO_BASE_URL:https://api.open-meteo.com}
+      current-path: ${OPEN_METEO_FORECAST_PATH:/v1/forecast}
+      forecast-path: ${OPEN_METEO_FORECAST_PATH:/v1/forecast}
+      time-zone: ${OPEN_METEO_TIME_ZONE:Asia/Seoul}
+      current-fields: ${OPEN_METEO_CURRENT_FIELDS:temperature_2m,apparent_temperature,precipitation,rain,weather_code}
+      hourly-fields: ${OPEN_METEO_HOURLY_FIELDS:temperature_2m,apparent_temperature,precipitation_probability,precipitation,rain,weather_code}
   recommendation:
     cache:
       ttl: ${RECOMMENDATION_CACHE_TTL:30m}
