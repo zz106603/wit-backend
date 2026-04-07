@@ -72,7 +72,7 @@ class GoogleIntegrationControllerTest {
 
     @Test
     void 다른_API는_인증없으면_401을_반환한다() throws Exception {
-        mockMvc.perform(get("/api/recommendations/home"))
+        mockMvc.perform(get("/api/recommendations/events/event-1"))
                 .andExpect(status().isUnauthorized());
     }
 }
