@@ -4,11 +4,9 @@ import com.yunhwan.wit.application.google.GoogleCallbackCommand;
 import com.yunhwan.wit.application.google.GoogleConnectionResult;
 import com.yunhwan.wit.application.google.GoogleIntegrationService;
 import com.yunhwan.wit.application.google.GoogleLoginUrlResult;
-import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -27,9 +25,12 @@ public class GoogleIntegrationController {
         return new GoogleLoginUrlResponse(result.loginUrl());
     }
 
-    @PostMapping("/callback")
-    public GoogleCallbackResponse callback(@Valid @RequestBody GoogleCallbackRequest request) {
-        GoogleConnectionResult result = googleIntegrationService.connect(new GoogleCallbackCommand(request.code()));
+    @GetMapping("/callback")
+    public GoogleCallbackResponse callback(
+            @RequestParam String code,
+            @RequestParam String state
+    ) {
+        GoogleConnectionResult result = googleIntegrationService.connect(new GoogleCallbackCommand(code, state));
         return new GoogleCallbackResponse(
                 result.connected(),
                 result.googleIntegration().email(),
