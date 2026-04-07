@@ -39,8 +39,9 @@
 ## Location Resolution
 
 1. Rule-based extraction first
-2. If fails → AI fallback
-3. If still fails → default location
+2. If unresolved or low-confidence → Google Places
+3. If still unresolved → AI fallback
+4. If still fails → default location
 
 ## Failure Handling
 

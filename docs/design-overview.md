@@ -8,7 +8,7 @@ This project is a backend MVP that recommends outfits based on:
 ## Core Flow
 
 CalendarEvent  
-→ Location Resolution (rule-based + AI fallback)  
+→ Location Resolution (rule-based + Google Places + AI fallback)  
 → Weather Snapshot  
 → Rule Engine  
 → Outfit Decision  
