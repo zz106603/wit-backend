@@ -7,6 +7,8 @@ import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.Objects;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
@@ -14,6 +16,8 @@ import org.springframework.web.client.RestClientResponseException;
 
 @Component
 public class HttpWeatherClient implements WeatherClient {
+
+    private static final Logger log = LoggerFactory.getLogger(HttpWeatherClient.class);
 
     private final RestClient weatherRestClient;
     private final WeatherApiProperties properties;
@@ -40,7 +44,7 @@ public class HttpWeatherClient implements WeatherClient {
         validateLocation(location);
 
         LocalDateTime requestedTargetTime = LocalDateTime.now(clock);
-        return fetchSnapshot(location, requestedTargetTime, properties.currentPath(), false);
+        return fetchSnapshot(location, requestedTargetTime, properties.currentPath(), false, "current");
     }
 
     @Override
@@ -48,7 +52,7 @@ public class HttpWeatherClient implements WeatherClient {
         validateLocation(location);
         Objects.requireNonNull(targetTime, "targetTime must not be null");
 
-        return fetchSnapshot(location, targetTime, properties.forecastPath(), true);
+        return fetchSnapshot(location, targetTime, properties.forecastPath(), true, "forecast");
     }
 
     private void validateLocation(ResolvedLocation location) {
@@ -63,9 +67,18 @@ public class HttpWeatherClient implements WeatherClient {
             ResolvedLocation location,
             LocalDateTime requestedTargetTime,
             String path,
-            boolean includeTargetTime
+            boolean includeTargetTime,
+            String purpose
     ) {
         try {
+            log.info(
+                    "[RecommendationDebug] Open-Meteo request before. purpose={}, lat={}, lng={}, targetTime={}, path={}",
+                    purpose,
+                    location.lat(),
+                    location.lng(),
+                    requestedTargetTime,
+                    path
+            );
             WeatherApiResponse response = weatherRestClient.get()
                     .uri(uriBuilder -> {
                         uriBuilder.path(path)
@@ -85,6 +98,13 @@ public class HttpWeatherClient implements WeatherClient {
                     })
                     .retrieve()
                     .body(WeatherApiResponse.class);
+            log.info(
+                    "[RecommendationDebug] Open-Meteo request after. purpose={}, targetTime={}, hasCurrent={}, hasHourly={}",
+                    purpose,
+                    requestedTargetTime,
+                    response != null && response.current() != null,
+                    response != null && response.hourly() != null
+            );
 
             if (response == null) {
                 throw new WeatherInfrastructureException("weather API returned empty response");

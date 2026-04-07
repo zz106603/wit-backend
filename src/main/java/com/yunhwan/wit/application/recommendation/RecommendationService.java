@@ -58,10 +58,12 @@ public class RecommendationService {
 
     public RecommendationResult recommend(CalendarEvent calendarEvent) {
         Objects.requireNonNull(calendarEvent, "calendarEvent must not be null");
+        log.info("[RecommendationDebug] recommend start. eventId={}", calendarEvent.eventId());
 
         LocalDateTime cacheTime = currentCacheTime();
         RecommendationResult cached = readFromCache(calendarEvent, cacheTime);
         if (cached != null) {
+            log.info("[RecommendationDebug] recommend cache hit. eventId={}", calendarEvent.eventId());
             return cached;
         }
 
@@ -69,8 +71,8 @@ public class RecommendationService {
         ResolvedLocation resolvedLocation = resolveEventLocation(calendarEvent, currentLocation);
 
         WeatherSnapshot currentWeather = fetchCurrentWeather(currentLocation);
-        WeatherSnapshot startWeather = fetchWeatherAt(resolvedLocation, calendarEvent.startAt());
-        WeatherSnapshot endWeather = fetchWeatherAt(resolvedLocation, calendarEvent.endAt());
+        WeatherSnapshot startWeather = fetchWeatherAt(resolvedLocation, calendarEvent.startAt(), "start");
+        WeatherSnapshot endWeather = fetchWeatherAt(resolvedLocation, calendarEvent.endAt(), "end");
 
         if (currentWeather == null || startWeather == null || endWeather == null) {
             RecommendationResult fallbackResult = new RecommendationResult(
@@ -83,10 +85,18 @@ public class RecommendationService {
                     true
             );
             writeToCache(calendarEvent, cacheTime, fallbackResult);
+            log.info("[RecommendationDebug] recommend end with weather fallback. eventId={}", calendarEvent.eventId());
             return fallbackResult;
         }
 
+        log.info("[RecommendationDebug] rule engine before. eventId={}", calendarEvent.eventId());
         OutfitDecision outfitDecision = summarize(outfitRuleEngine.decide(currentWeather, startWeather, endWeather));
+        log.info(
+                "[RecommendationDebug] rule engine after. eventId={}, needUmbrella={}, recommendedOutfitText={}",
+                calendarEvent.eventId(),
+                outfitDecision.needUmbrella(),
+                outfitDecision.recommendedOutfitText()
+        );
 
         RecommendationResult recommendationResult = new RecommendationResult(
                 outfitDecision,
@@ -98,12 +108,24 @@ public class RecommendationService {
                 false
         );
         writeToCache(calendarEvent, cacheTime, recommendationResult);
+        log.info("[RecommendationDebug] recommend end. eventId={}", calendarEvent.eventId());
         return recommendationResult;
     }
 
     private RecommendationResult readFromCache(CalendarEvent calendarEvent, LocalDateTime cacheTime) {
         try {
-            return recommendationCache.find(calendarEvent, cacheTime).orElse(null);
+            log.info(
+                    "[RecommendationDebug] recommendation cache read before. eventId={}, cacheTime={}",
+                    calendarEvent.eventId(),
+                    cacheTime
+            );
+            RecommendationResult result = recommendationCache.find(calendarEvent, cacheTime).orElse(null);
+            log.info(
+                    "[RecommendationDebug] recommendation cache read after. eventId={}, hit={}",
+                    calendarEvent.eventId(),
+                    result != null
+            );
+            return result;
         } catch (RuntimeException exception) {
             log.warn("Recommendation cache read failed. eventId={}", calendarEvent.eventId(), exception);
             return null;
@@ -116,7 +138,13 @@ public class RecommendationService {
             RecommendationResult recommendationResult
     ) {
         try {
+            log.info(
+                    "[RecommendationDebug] recommendation cache write before. eventId={}, cacheTime={}",
+                    calendarEvent.eventId(),
+                    cacheTime
+            );
             recommendationCache.put(calendarEvent, cacheTime, recommendationResult);
+            log.info("[RecommendationDebug] recommendation cache write after. eventId={}", calendarEvent.eventId());
         } catch (RuntimeException exception) {
             log.warn("Recommendation cache write failed. eventId={}", calendarEvent.eventId(), exception);
         }
@@ -130,28 +158,89 @@ public class RecommendationService {
 
     private ResolvedLocation resolveEventLocation(CalendarEvent calendarEvent, ResolvedLocation currentLocation) {
         try {
+            log.info(
+                    "[RecommendationDebug] location resolve before. eventId={}, rawLocation={}",
+                    calendarEvent.eventId(),
+                    calendarEvent.rawLocation()
+            );
             ResolvedLocation resolvedLocation = locationResolver.resolve(calendarEvent.rawLocation());
             if (resolvedLocation.status() == LocationResolutionStatus.FAILED) {
+                log.info(
+                        "[RecommendationDebug] location resolve after. eventId={}, status=FAILED, fallback=current",
+                        calendarEvent.eventId()
+                );
                 return currentLocation;
             }
+            log.info(
+                    "[RecommendationDebug] location resolve after. eventId={}, status={}, resolvedBy={}, displayLocation={}",
+                    calendarEvent.eventId(),
+                    resolvedLocation.status(),
+                    resolvedLocation.resolvedBy(),
+                    resolvedLocation.displayLocation()
+            );
             return resolvedLocation;
         } catch (RuntimeException exception) {
+            log.warn(
+                    "[RecommendationDebug] location resolve failed. eventId={}, fallback=current",
+                    calendarEvent.eventId(),
+                    exception
+            );
             return currentLocation;
         }
     }
 
     private WeatherSnapshot fetchCurrentWeather(ResolvedLocation location) {
         try {
-            return weatherClient.fetchCurrentWeather(location);
+            log.info(
+                    "[RecommendationDebug] current weather before. location={}, lat={}, lng={}",
+                    location.displayLocation(),
+                    location.lat(),
+                    location.lng()
+            );
+            WeatherSnapshot snapshot = weatherClient.fetchCurrentWeather(location);
+            log.info(
+                    "[RecommendationDebug] current weather after. location={}, targetTime={}",
+                    location.displayLocation(),
+                    snapshot.targetTime()
+            );
+            return snapshot;
         } catch (RuntimeException exception) {
+            log.warn("[RecommendationDebug] current weather failed. location={}", location.displayLocation(), exception);
             return null;
         }
     }
 
-    private WeatherSnapshot fetchWeatherAt(ResolvedLocation location, java.time.LocalDateTime targetTime) {
+    private WeatherSnapshot fetchWeatherAt(
+            ResolvedLocation location,
+            java.time.LocalDateTime targetTime,
+            String purpose
+    ) {
         try {
-            return weatherClient.fetchWeatherAt(location, targetTime);
+            log.info(
+                    "[RecommendationDebug] {} weather before. location={}, lat={}, lng={}, targetTime={}",
+                    purpose,
+                    location.displayLocation(),
+                    location.lat(),
+                    location.lng(),
+                    targetTime
+            );
+            WeatherSnapshot snapshot = weatherClient.fetchWeatherAt(location, targetTime);
+            log.info(
+                    "[RecommendationDebug] {} weather after. location={}, targetTime={}, weatherType={}",
+                    purpose,
+                    location.displayLocation(),
+                    targetTime,
+                    snapshot.weatherType()
+            );
+            return snapshot;
         } catch (RuntimeException exception) {
+            log.warn(
+                    "[RecommendationDebug] {} weather failed. location={}, targetTime={}",
+                    purpose,
+                    location.displayLocation(),
+                    targetTime,
+                    exception
+            );
             return null;
         }
     }

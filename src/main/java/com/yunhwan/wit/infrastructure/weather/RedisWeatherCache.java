@@ -12,10 +12,13 @@ import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
 
 public class RedisWeatherCache implements WeatherCache {
 
+    private static final Logger log = LoggerFactory.getLogger(RedisWeatherCache.class);
     private static final String KEY_PREFIX = "weather:";
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
 
@@ -54,13 +57,17 @@ public class RedisWeatherCache implements WeatherCache {
     }
 
     private Optional<WeatherSnapshot> find(String key) {
+        log.info("[RecommendationDebug] Redis weather find before. key={}", key);
         String payload = redisTemplate.opsForValue().get(key);
         if (payload == null || payload.isBlank()) {
+            log.info("[RecommendationDebug] Redis weather find after. key={}, hit=false", key);
             return Optional.empty();
         }
 
         try {
-            return Optional.of(objectMapper.readValue(payload, WeatherSnapshot.class));
+            Optional<WeatherSnapshot> result = Optional.of(objectMapper.readValue(payload, WeatherSnapshot.class));
+            log.info("[RecommendationDebug] Redis weather find after. key={}, hit=true", key);
+            return result;
         } catch (IOException exception) {
             throw new IllegalStateException("Failed to deserialize cached weather snapshot", exception);
         }
@@ -68,17 +75,25 @@ public class RedisWeatherCache implements WeatherCache {
 
     private void put(String key, WeatherSnapshot weatherSnapshot, Duration ttl) {
         try {
+            log.info("[RecommendationDebug] Redis weather put before. key={}", key);
             redisTemplate.opsForValue().set(
                     key,
                     objectMapper.writeValueAsString(weatherSnapshot),
                     ttl
             );
+            log.info("[RecommendationDebug] Redis weather put after. key={}", key);
         } catch (JsonProcessingException exception) {
             throw new IllegalStateException("Failed to serialize weather snapshot for cache", exception);
         }
     }
 
     private String toKey(String weatherType, ResolvedLocation location, LocalDateTime targetTime) {
+        log.info(
+                "[RecommendationDebug] Redis weather key generation start. type={}, location={}, targetTime={}",
+                weatherType,
+                location.displayLocation(),
+                targetTime
+        );
         Objects.requireNonNull(location, "location must not be null");
         Objects.requireNonNull(targetTime, "targetTime must not be null");
 
@@ -86,7 +101,7 @@ public class RedisWeatherCache implements WeatherCache {
             throw new IllegalArgumentException("location coordinates must not be null");
         }
 
-        return KEY_PREFIX
+        String key = KEY_PREFIX
                 + weatherType.toLowerCase(Locale.ROOT)
                 + ":"
                 + location.lat()
@@ -94,6 +109,8 @@ public class RedisWeatherCache implements WeatherCache {
                 + location.lng()
                 + ":"
                 + TIME_FORMATTER.format(targetTime);
+        log.info("[RecommendationDebug] Redis weather key generation end. key={}", key);
+        return key;
     }
 
     private Duration ttlForCurrent() {
