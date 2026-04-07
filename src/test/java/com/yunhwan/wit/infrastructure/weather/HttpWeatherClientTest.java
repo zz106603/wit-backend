@@ -35,7 +35,7 @@ class HttpWeatherClientTest {
 
         weatherClient = new HttpWeatherClient(
                 builder.baseUrl("https://weather.test").build(),
-                new WeatherApiProperties("https://weather.test", "/current", "/forecast"),
+                new WeatherApiProperties("generic", "https://weather.test", "/current", "/forecast", "Asia/Seoul", "", ""),
                 new WeatherSnapshotMapper(),
                 Clock.fixed(Instant.parse("2026-04-01T00:00:00Z"), ZoneId.of("Asia/Seoul"))
         );
