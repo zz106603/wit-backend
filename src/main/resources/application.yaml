@@ -25,9 +25,16 @@ wit:
       ttl: ${RECOMMENDATION_CACHE_TTL:30m}
   google:
     oauth:
-      client-id: ${GOOGLE_CLIENT_ID:stub-google-client}
+      client-id: ${GOOGLE_CLIENT_ID:}
+      client-secret: ${GOOGLE_CLIENT_SECRET:}
       redirect-uri: ${GOOGLE_REDIRECT_URI:http://localhost:8080/api/integrations/google/callback}
-      scope: ${GOOGLE_SCOPE:https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/userinfo.email}
+      scope: ${GOOGLE_SCOPE:openid https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/calendar.readonly}
       authorization-base-url: ${GOOGLE_AUTHORIZATION_BASE_URL:https://accounts.google.com/o/oauth2/v2/auth}
+      token-url: ${GOOGLE_TOKEN_URL:https://oauth2.googleapis.com/token}
+      user-info-url: ${GOOGLE_USER_INFO_URL:https://www.googleapis.com/oauth2/v3/userinfo}
       state: ${GOOGLE_OAUTH_STATE:wit-google-state}
       access-token-expiry: ${GOOGLE_ACCESS_TOKEN_EXPIRY:1h}
+    calendar:
+      base-url: ${GOOGLE_CALENDAR_BASE_URL:https://www.googleapis.com}
+      events-path: ${GOOGLE_CALENDAR_EVENTS_PATH:/calendar/v3/calendars/primary/events}
+      time-zone: ${GOOGLE_CALENDAR_TIME_ZONE:Asia/Seoul}
