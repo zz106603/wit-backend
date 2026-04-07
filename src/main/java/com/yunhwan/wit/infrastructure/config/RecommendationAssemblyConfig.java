@@ -9,10 +9,12 @@ import com.yunhwan.wit.application.location.LocationResolutionCache;
 import com.yunhwan.wit.application.location.LocationResolver;
 import com.yunhwan.wit.application.location.RuleBasedLocationResolver;
 import com.yunhwan.wit.application.recommendation.RecommendationCache;
+import com.yunhwan.wit.application.recommendation.RecommendationHomeService;
 import com.yunhwan.wit.application.recommendation.RecommendationService;
 import com.yunhwan.wit.application.summary.SummaryGenerator;
 import com.yunhwan.wit.application.weather.WeatherClient;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.yunhwan.wit.application.google.GoogleIntegrationService;
 import java.time.Clock;
 import com.yunhwan.wit.domain.model.LocationResolvedBy;
 import com.yunhwan.wit.domain.model.ResolvedLocation;
@@ -152,5 +154,13 @@ public class RecommendationAssemblyConfig {
                 recommendationCache,
                 clock
         );
+    }
+
+    @Bean
+    public RecommendationHomeService recommendationHomeService(
+            GoogleIntegrationService googleIntegrationService,
+            RecommendationService recommendationService
+    ) {
+        return new RecommendationHomeService(googleIntegrationService, recommendationService);
     }
 }
