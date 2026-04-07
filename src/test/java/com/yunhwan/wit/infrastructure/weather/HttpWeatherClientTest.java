@@ -35,7 +35,15 @@ class HttpWeatherClientTest {
 
         weatherClient = new HttpWeatherClient(
                 builder.baseUrl("https://weather.test").build(),
-                new WeatherApiProperties("generic", "https://weather.test", "/current", "/forecast", "Asia/Seoul", "", ""),
+                new WeatherApiProperties(
+                        "open-meteo",
+                        "https://weather.test",
+                        "/v1/forecast",
+                        "/v1/forecast",
+                        "Asia/Seoul",
+                        "temperature_2m,apparent_temperature,precipitation_probability,precipitation,rain,weather_code",
+                        "temperature_2m,apparent_temperature,precipitation_probability,precipitation,rain,weather_code"
+                ),
                 new WeatherSnapshotMapper(),
                 Clock.fixed(Instant.parse("2026-04-01T00:00:00Z"), ZoneId.of("Asia/Seoul"))
         );
@@ -43,17 +51,22 @@ class HttpWeatherClientTest {
 
     @Test
     void 현재날씨_스텁응답으로_snapshot을_생성한다() {
-        server.expect(requestTo("https://weather.test/current?latitude=37.4979&longitude=127.0276"))
+        server.expect(requestTo("https://weather.test/v1/forecast?latitude=37.4979&longitude=127.0276&timezone=Asia/Seoul&current=temperature_2m,apparent_temperature,precipitation_probability,precipitation,rain,weather_code"))
                 .andExpect(queryParam("latitude", "37.4979"))
                 .andExpect(queryParam("longitude", "127.0276"))
+                .andExpect(queryParam("timezone", "Asia/Seoul"))
+                .andExpect(queryParam("current", "temperature_2m,apparent_temperature,precipitation_probability,precipitation,rain,weather_code"))
                 .andRespond(withSuccess("""
                         {
-                          "regionName": "서울특별시 강남구",
-                          "targetTime": "2026-04-01T09:00:00",
-                          "temperature": 18,
-                          "feelsLike": 17,
-                          "precipitationProbability": 20,
-                          "condition": "CLEAR"
+                          "current": {
+                            "time": "2026-04-01T09:00",
+                            "temperature_2m": 18.2,
+                            "apparent_temperature": 17.4,
+                            "precipitation_probability": 20,
+                            "precipitation": 0.0,
+                            "rain": 0.0,
+                            "weather_code": 0
+                          }
                         }
                         """, MediaType.APPLICATION_JSON));
 
@@ -73,29 +86,37 @@ class HttpWeatherClientTest {
         LocalDateTime startTime = LocalDateTime.of(2026, 4, 1, 18, 0);
         LocalDateTime endTime = LocalDateTime.of(2026, 4, 1, 21, 0);
 
-        server.expect(requestTo("https://weather.test/forecast?latitude=37.4979&longitude=127.0276&targetTime=2026-04-01T18:00"))
-                .andExpect(queryParam("targetTime", "2026-04-01T18:00"))
+        server.expect(requestTo("https://weather.test/v1/forecast?latitude=37.4979&longitude=127.0276&timezone=Asia/Seoul&hourly=temperature_2m,apparent_temperature,precipitation_probability,precipitation,rain,weather_code&start_hour=2026-04-01T18:00&end_hour=2026-04-01T18:00"))
+                .andExpect(queryParam("hourly", "temperature_2m,apparent_temperature,precipitation_probability,precipitation,rain,weather_code"))
+                .andExpect(queryParam("start_hour", "2026-04-01T18:00"))
+                .andExpect(queryParam("end_hour", "2026-04-01T18:00"))
                 .andRespond(withSuccess("""
                         {
-                          "regionName": "서울특별시 강남구",
-                          "targetTime": "2026-04-01T18:00:00",
-                          "temperature": 19,
-                          "feelsLike": 18,
-                          "precipitationProbability": 30,
-                          "condition": "CLOUDS"
+                          "hourly": {
+                            "time": ["2026-04-01T18:00"],
+                            "temperature_2m": [19.1],
+                            "apparent_temperature": [17.8],
+                            "precipitation_probability": [30],
+                            "precipitation": [0.0],
+                            "rain": [0.0],
+                            "weather_code": [3]
+                          }
                         }
                         """, MediaType.APPLICATION_JSON));
 
-        server.expect(requestTo("https://weather.test/forecast?latitude=37.4979&longitude=127.0276&targetTime=2026-04-01T21:00"))
-                .andExpect(queryParam("targetTime", "2026-04-01T21:00"))
+        server.expect(requestTo("https://weather.test/v1/forecast?latitude=37.4979&longitude=127.0276&timezone=Asia/Seoul&hourly=temperature_2m,apparent_temperature,precipitation_probability,precipitation,rain,weather_code&start_hour=2026-04-01T21:00&end_hour=2026-04-01T21:00"))
+                .andExpect(queryParam("start_hour", "2026-04-01T21:00"))
                 .andRespond(withSuccess("""
                         {
-                          "regionName": "서울특별시 강남구",
-                          "targetTime": "2026-04-01T21:00:00",
-                          "temperature": 16,
-                          "feelsLike": 14,
-                          "precipitationProbability": 70,
-                          "condition": "RAIN"
+                          "hourly": {
+                            "time": ["2026-04-01T21:00"],
+                            "temperature_2m": [16.2],
+                            "apparent_temperature": [14.3],
+                            "precipitation_probability": [70],
+                            "precipitation": [2.0],
+                            "rain": [2.0],
+                            "weather_code": [61]
+                          }
                         }
                         """, MediaType.APPLICATION_JSON));
 
@@ -116,15 +137,16 @@ class HttpWeatherClientTest {
     void provider_응답시각과_무관하게_요청시각을_targetTime으로_사용한다() {
         LocalDateTime requestedTime = LocalDateTime.of(2026, 4, 1, 18, 0);
 
-        server.expect(requestTo("https://weather.test/forecast?latitude=37.4979&longitude=127.0276&targetTime=2026-04-01T18:00"))
+        server.expect(requestTo("https://weather.test/v1/forecast?latitude=37.4979&longitude=127.0276&timezone=Asia/Seoul&hourly=temperature_2m,apparent_temperature,precipitation_probability,precipitation,rain,weather_code&start_hour=2026-04-01T18:00&end_hour=2026-04-01T18:00"))
                 .andRespond(withSuccess("""
                         {
-                          "regionName": "서울특별시 강남구",
-                          "targetTime": "2026-04-01T19:00:00",
-                          "temperature": 19,
-                          "feelsLike": 18,
-                          "precipitationProbability": 30,
-                          "condition": "CLOUDS"
+                          "hourly": {
+                            "time": ["2026-04-01T18:00"],
+                            "temperature_2m": [19.1],
+                            "apparent_temperature": [17.8],
+                            "precipitation_probability": [30],
+                            "weather_code": [3]
+                          }
                         }
                         """, MediaType.APPLICATION_JSON));
 
@@ -136,7 +158,7 @@ class HttpWeatherClientTest {
 
     @Test
     void 알수없는_condition이면_UNKNOWN으로_처리한다() {
-        server.expect(requestTo("https://weather.test/current?latitude=37.4979&longitude=127.0276"))
+        server.expect(requestTo("https://weather.test/v1/forecast?latitude=37.4979&longitude=127.0276&timezone=Asia/Seoul&current=temperature_2m,apparent_temperature,precipitation_probability,precipitation,rain,weather_code"))
                 .andRespond(withSuccess("""
                         {
                           "regionName": "서울특별시 강남구",
@@ -155,7 +177,7 @@ class HttpWeatherClientTest {
 
     @Test
     void 응답본문이_없으면_일관된_infra_예외로_변환한다() {
-        server.expect(requestTo("https://weather.test/current?latitude=37.4979&longitude=127.0276"))
+        server.expect(requestTo("https://weather.test/v1/forecast?latitude=37.4979&longitude=127.0276&timezone=Asia/Seoul&current=temperature_2m,apparent_temperature,precipitation_probability,precipitation,rain,weather_code"))
                 .andRespond(withSuccess("", MediaType.APPLICATION_JSON));
 
         assertThatThrownBy(() -> weatherClient.fetchCurrentWeather(resolvedLocation()))
@@ -167,7 +189,7 @@ class HttpWeatherClientTest {
 
     @Test
     void 역직렬화_실패를_일관된_infra_예외로_변환한다() {
-        server.expect(requestTo("https://weather.test/current?latitude=37.4979&longitude=127.0276"))
+        server.expect(requestTo("https://weather.test/v1/forecast?latitude=37.4979&longitude=127.0276&timezone=Asia/Seoul&current=temperature_2m,apparent_temperature,precipitation_probability,precipitation,rain,weather_code"))
                 .andRespond(withSuccess("{invalid-json}", MediaType.APPLICATION_JSON));
 
         assertThatThrownBy(() -> weatherClient.fetchCurrentWeather(resolvedLocation()))
@@ -179,7 +201,7 @@ class HttpWeatherClientTest {
 
     @Test
     void http_4xx를_일관된_infra_예외로_변환한다() {
-        server.expect(requestTo("https://weather.test/current?latitude=37.4979&longitude=127.0276"))
+        server.expect(requestTo("https://weather.test/v1/forecast?latitude=37.4979&longitude=127.0276&timezone=Asia/Seoul&current=temperature_2m,apparent_temperature,precipitation_probability,precipitation,rain,weather_code"))
                 .andRespond(MockRestResponseCreators.withStatus(HttpStatus.BAD_REQUEST));
 
         assertThatThrownBy(() -> weatherClient.fetchCurrentWeather(resolvedLocation()))
@@ -191,7 +213,7 @@ class HttpWeatherClientTest {
 
     @Test
     void http_5xx를_일관된_infra_예외로_변환한다() {
-        server.expect(requestTo("https://weather.test/current?latitude=37.4979&longitude=127.0276"))
+        server.expect(requestTo("https://weather.test/v1/forecast?latitude=37.4979&longitude=127.0276&timezone=Asia/Seoul&current=temperature_2m,apparent_temperature,precipitation_probability,precipitation,rain,weather_code"))
                 .andRespond(withServerError());
 
         assertThatThrownBy(() -> weatherClient.fetchCurrentWeather(resolvedLocation()))

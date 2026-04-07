@@ -8,6 +8,7 @@ import com.yunhwan.wit.domain.model.ResolvedLocation;
 import com.yunhwan.wit.domain.model.WeatherSnapshot;
 import com.yunhwan.wit.domain.model.WeatherType;
 import java.time.LocalDateTime;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class WeatherSnapshotMapperTest {
@@ -94,6 +95,77 @@ class WeatherSnapshotMapperTest {
         );
 
         assertThat(snapshot.weatherType()).isEqualTo(WeatherType.UNKNOWN);
+    }
+
+    @Test
+    void open_meteo_current_응답을_snapshot으로_변환한다() {
+        WeatherApiResponse response = new WeatherApiResponse(
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                new WeatherApiResponse.CurrentWeather(
+                        LocalDateTime.of(2026, 4, 1, 9, 0),
+                        18.2,
+                        17.4,
+                        20,
+                        0.0,
+                        0.0,
+                        0
+                ),
+                null
+        );
+
+        WeatherSnapshot snapshot = mapper.toSnapshot(
+                resolvedLocation(),
+                LocalDateTime.of(2026, 4, 1, 9, 0),
+                response
+        );
+
+        assertThat(snapshot.regionName()).isEqualTo("서울특별시 강남구");
+        assertThat(snapshot.temperature()).isEqualTo(18);
+        assertThat(snapshot.feelsLike()).isEqualTo(17);
+        assertThat(snapshot.precipitationProbability()).isEqualTo(20);
+        assertThat(snapshot.weatherType()).isEqualTo(WeatherType.CLEAR);
+    }
+
+    @Test
+    void open_meteo_hourly_응답에서_요청시각_snapshot을_추출한다() {
+        WeatherApiResponse response = new WeatherApiResponse(
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                new WeatherApiResponse.HourlyWeather(
+                        List.of(
+                                LocalDateTime.of(2026, 4, 1, 18, 0),
+                                LocalDateTime.of(2026, 4, 1, 19, 0)
+                        ),
+                        List.of(19.1, 17.2),
+                        List.of(17.8, 15.4),
+                        List.of(30, 70),
+                        List.of(0.0, 2.0),
+                        List.of(0.0, 2.0),
+                        List.of(3, 61)
+                )
+        );
+
+        WeatherSnapshot snapshot = mapper.toSnapshot(
+                resolvedLocation(),
+                LocalDateTime.of(2026, 4, 1, 19, 30),
+                response
+        );
+
+        assertThat(snapshot.targetTime()).isEqualTo(LocalDateTime.of(2026, 4, 1, 19, 30));
+        assertThat(snapshot.temperature()).isEqualTo(17);
+        assertThat(snapshot.feelsLike()).isEqualTo(15);
+        assertThat(snapshot.precipitationProbability()).isEqualTo(70);
+        assertThat(snapshot.weatherType()).isEqualTo(WeatherType.RAIN);
     }
 
     @Test

@@ -160,7 +160,11 @@ class RecommendationServiceEndToEndTest {
     }
 
     private LocationResolver locationResolver(AiLocationFallbackResolver aiLocationFallbackResolver) {
-        return new DefaultLocationResolver(new RuleBasedLocationResolver(), aiLocationFallbackResolver);
+        return new DefaultLocationResolver(
+                new RuleBasedLocationResolver(),
+                ResolvedLocation::failed,
+                aiLocationFallbackResolver
+        );
     }
 
     private WeatherSnapshot snapshot(
