@@ -4,6 +4,8 @@ import com.yunhwan.wit.application.location.GooglePlacesLocationResolver;
 import com.yunhwan.wit.domain.model.LocationResolvedBy;
 import com.yunhwan.wit.domain.model.ResolvedLocation;
 import java.util.Objects;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
@@ -11,6 +13,7 @@ import org.springframework.web.client.RestClientResponseException;
 
 public class HttpGooglePlacesLocationResolver implements GooglePlacesLocationResolver {
 
+    private static final Logger log = LoggerFactory.getLogger(HttpGooglePlacesLocationResolver.class);
     private static final double GOOGLE_PLACES_CONFIDENCE = 0.85;
 
     private final RestClient googlePlacesRestClient;
@@ -30,10 +33,21 @@ public class HttpGooglePlacesLocationResolver implements GooglePlacesLocationRes
     @Override
     public ResolvedLocation resolve(String rawLocation) {
         if (!StringUtils.hasText(rawLocation) || !StringUtils.hasText(properties.apiKey())) {
+            log.info(
+                    "[RecommendationDebug] Google Places short-circuit. rawLocation={}, apiKeyPresent={}",
+                    rawLocation,
+                    StringUtils.hasText(properties.apiKey())
+            );
             return ResolvedLocation.failed(rawLocation);
         }
 
         try {
+            log.info(
+                    "[RecommendationDebug] Google Places request before. rawLocation={}, path={}, fieldMask={}",
+                    rawLocation,
+                    properties.textSearchPath(),
+                    properties.fieldMask()
+            );
             GooglePlacesTextSearchResponse response = googlePlacesRestClient.post()
                     .uri(properties.textSearchPath())
                     .header("X-Goog-Api-Key", properties.apiKey())
@@ -46,6 +60,11 @@ public class HttpGooglePlacesLocationResolver implements GooglePlacesLocationRes
                     ))
                     .retrieve()
                     .body(GooglePlacesTextSearchResponse.class);
+            log.info(
+                    "[RecommendationDebug] Google Places request after. rawLocation={}, itemCount={}",
+                    rawLocation,
+                    itemCount(response)
+            );
 
             return mapFirstPlace(rawLocation, response);
         } catch (RestClientResponseException exception) {
@@ -53,6 +72,13 @@ public class HttpGooglePlacesLocationResolver implements GooglePlacesLocationRes
         } catch (RestClientException exception) {
             throw new GooglePlacesInfrastructureException("Google Places communication failed", exception);
         }
+    }
+
+    private int itemCount(GooglePlacesTextSearchResponse response) {
+        if (response == null || response.places() == null) {
+            return 0;
+        }
+        return response.places().size();
     }
 
     private ResolvedLocation mapFirstPlace(String rawLocation, GooglePlacesTextSearchResponse response) {

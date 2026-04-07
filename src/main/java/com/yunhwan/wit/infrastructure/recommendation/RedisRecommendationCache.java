@@ -10,10 +10,13 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Objects;
 import java.util.Optional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
 
 public class RedisRecommendationCache implements RecommendationCache {
 
+    private static final Logger log = LoggerFactory.getLogger(RedisRecommendationCache.class);
     private static final String KEY_PREFIX = "recommendation:";
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
 
@@ -33,18 +36,24 @@ public class RedisRecommendationCache implements RecommendationCache {
 
     @Override
     public Optional<RecommendationResult> find(CalendarEvent calendarEvent, LocalDateTime cacheTime) {
-        return find(toKey(calendarEvent, cacheTime));
+        String key = toKey(calendarEvent, cacheTime);
+        log.info("[RecommendationDebug] Redis recommendation find before. key={}", key);
+        Optional<RecommendationResult> result = find(key);
+        log.info("[RecommendationDebug] Redis recommendation find after. key={}, hit={}", key, result.isPresent());
+        return result;
     }
 
     @Override
     public void put(CalendarEvent calendarEvent, LocalDateTime cacheTime, RecommendationResult recommendationResult) {
         String key = toKey(calendarEvent, cacheTime);
         try {
+            log.info("[RecommendationDebug] Redis recommendation put before. key={}", key);
             redisTemplate.opsForValue().set(
                     key,
                     objectMapper.writeValueAsString(recommendationResult),
                     properties.ttl()
             );
+            log.info("[RecommendationDebug] Redis recommendation put after. key={}", key);
         } catch (JsonProcessingException exception) {
             throw new IllegalStateException("Failed to serialize recommendation result for cache", exception);
         }
@@ -66,8 +75,13 @@ public class RedisRecommendationCache implements RecommendationCache {
     private String toKey(CalendarEvent calendarEvent, LocalDateTime cacheTime) {
         Objects.requireNonNull(calendarEvent, "calendarEvent must not be null");
         Objects.requireNonNull(cacheTime, "cacheTime must not be null");
+        log.info(
+                "[RecommendationDebug] Redis recommendation key generation start. eventId={}, cacheTime={}",
+                calendarEvent.eventId(),
+                cacheTime
+        );
 
-        return KEY_PREFIX
+        String key = KEY_PREFIX
                 + calendarEvent.eventId()
                 + ":"
                 + TIME_FORMATTER.format(cacheTime)
@@ -77,6 +91,8 @@ public class RedisRecommendationCache implements RecommendationCache {
                 + TIME_FORMATTER.format(calendarEvent.endAt())
                 + ":"
                 + normalizeLocation(calendarEvent.rawLocation());
+        log.info("[RecommendationDebug] Redis recommendation key generation end. key={}", key);
+        return key;
     }
 
     private String normalizeLocation(String rawLocation) {

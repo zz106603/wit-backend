@@ -4,8 +4,12 @@ import com.yunhwan.wit.domain.model.LocationResolvedBy;
 import com.yunhwan.wit.domain.model.LocationResolutionStatus;
 import com.yunhwan.wit.domain.model.ResolvedLocation;
 import java.util.Objects;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class DefaultLocationResolver implements LocationResolver {
+
+    private static final Logger log = LoggerFactory.getLogger(DefaultLocationResolver.class);
 
     private final RuleBasedLocationResolver ruleBasedLocationResolver;
     private final GooglePlacesLocationResolver googlePlacesLocationResolver;
@@ -33,6 +37,13 @@ public class DefaultLocationResolver implements LocationResolver {
     @Override
     public ResolvedLocation resolve(String rawLocation) {
         ResolvedLocation ruleResult = ruleBasedLocationResolver.resolve(rawLocation);
+        log.info(
+                "[RecommendationDebug] location rule result. rawLocation={}, status={}, resolvedBy={}, displayLocation={}",
+                rawLocation,
+                ruleResult.status(),
+                ruleResult.resolvedBy(),
+                ruleResult.displayLocation()
+        );
 
         if (ruleResult.status() == LocationResolutionStatus.RESOLVED) {
             return ruleResult;
@@ -47,7 +58,14 @@ public class DefaultLocationResolver implements LocationResolver {
             return googlePlacesResult;
         }
 
+        log.info("[RecommendationDebug] AI fallback before. rawLocation={}", rawLocation);
         ResolvedLocation aiResult = aiLocationFallbackResolver.resolve(rawLocation);
+        log.info(
+                "[RecommendationDebug] AI fallback after. rawLocation={}, status={}, resolvedBy={}",
+                rawLocation,
+                aiResult.status(),
+                aiResult.resolvedBy()
+        );
         if (isSuccessfulAiResult(aiResult, rawLocation)) {
             return aiResult;
         }
@@ -57,8 +75,17 @@ public class DefaultLocationResolver implements LocationResolver {
 
     private ResolvedLocation resolveByGooglePlaces(String rawLocation) {
         try {
-            return googlePlacesLocationResolver.resolve(rawLocation);
+            log.info("[RecommendationDebug] Google Places before. rawLocation={}", rawLocation);
+            ResolvedLocation result = googlePlacesLocationResolver.resolve(rawLocation);
+            log.info(
+                    "[RecommendationDebug] Google Places after. rawLocation={}, status={}, resolvedBy={}",
+                    rawLocation,
+                    result.status(),
+                    result.resolvedBy()
+            );
+            return result;
         } catch (RuntimeException exception) {
+            log.warn("[RecommendationDebug] Google Places failed. rawLocation={}", rawLocation, exception);
             return ResolvedLocation.failed(rawLocation);
         }
     }

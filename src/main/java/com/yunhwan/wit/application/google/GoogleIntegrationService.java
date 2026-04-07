@@ -5,9 +5,12 @@ import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class GoogleIntegrationService {
 
+    private static final Logger log = LoggerFactory.getLogger(GoogleIntegrationService.class);
     private static final int DEFAULT_EVENT_LIMIT = 3;
 
     private final GoogleOAuthClient googleOAuthClient;
@@ -45,7 +48,19 @@ public class GoogleIntegrationService {
 
         LocalDateTime now = LocalDateTime.now(clock);
         String userId = googleIntegrationUserProvider.getCurrentUserId();
+        log.info(
+                "[GoogleIntegrationDebug] connect start. userId={}, repository={}",
+                userId,
+                System.identityHashCode(googleIntegrationRepository)
+        );
         GoogleOAuthToken googleOAuthToken = googleOAuthClient.exchangeCode(command.code(), command.state());
+        log.info(
+                "[GoogleIntegrationDebug] token exchange success. userId={}, email={}, accessTokenPresent={}, refreshTokenPresent={}",
+                userId,
+                googleOAuthToken.email(),
+                googleOAuthToken.accessToken() != null && !googleOAuthToken.accessToken().isBlank(),
+                googleOAuthToken.refreshToken() != null && !googleOAuthToken.refreshToken().isBlank()
+        );
         String refreshToken = googleOAuthToken.refreshToken();
         if (refreshToken == null || refreshToken.isBlank()) {
             refreshToken = googleIntegrationRepository.findByUserId(userId)
@@ -60,7 +75,19 @@ public class GoogleIntegrationService {
                 googleOAuthToken.accessTokenExpiresAt(),
                 now
         );
+        log.info(
+                "[GoogleIntegrationDebug] integration save before. userId={}, email={}, repository={}",
+                userId,
+                googleIntegration.email(),
+                System.identityHashCode(googleIntegrationRepository)
+        );
         googleIntegrationRepository.save(googleIntegration);
+        log.info(
+                "[GoogleIntegrationDebug] integration save after. userId={}, email={}, repository={}",
+                userId,
+                googleIntegration.email(),
+                System.identityHashCode(googleIntegrationRepository)
+        );
 
         List<CalendarEvent> calendarEvents = googleCalendarClient.fetchUpcomingEvents(
                 googleIntegration,
@@ -72,12 +99,41 @@ public class GoogleIntegrationService {
     }
 
     public List<CalendarEvent> getUpcomingEvents() {
-        return googleIntegrationRepository.findByUserId(googleIntegrationUserProvider.getCurrentUserId())
-                .map(googleIntegration -> googleCalendarClient.fetchUpcomingEvents(
-                        googleIntegration,
-                        LocalDateTime.now(clock),
-                        DEFAULT_EVENT_LIMIT
-                ))
-                .orElse(List.of());
+        String userId = googleIntegrationUserProvider.getCurrentUserId();
+        log.info(
+                "[GoogleIntegrationDebug] integration lookup start. userId={}, repository={}",
+                userId,
+                System.identityHashCode(googleIntegrationRepository)
+        );
+        return googleIntegrationRepository.findByUserId(userId)
+                .map(googleIntegration -> {
+                    log.info(
+                            "[GoogleIntegrationDebug] integration lookup hit. userId={}, email={}, repository={}",
+                            userId,
+                            googleIntegration.email(),
+                            System.identityHashCode(googleIntegrationRepository)
+                    );
+                    log.info("[GoogleCalendarDebug] Google integration found. userId={}", userId);
+                    List<CalendarEvent> calendarEvents = googleCalendarClient.fetchUpcomingEvents(
+                            googleIntegration,
+                            LocalDateTime.now(clock),
+                            DEFAULT_EVENT_LIMIT
+                    );
+                    log.info(
+                            "[GoogleCalendarDebug] Upcoming events fetched. userId={}, count={}",
+                            userId,
+                            calendarEvents.size()
+                    );
+                    return calendarEvents;
+                })
+                .orElseGet(() -> {
+                    log.info(
+                            "[GoogleIntegrationDebug] integration lookup miss. userId={}, repository={}",
+                            userId,
+                            System.identityHashCode(googleIntegrationRepository)
+                    );
+                    log.info("[GoogleCalendarDebug] Google integration not found. userId={}", userId);
+                    return List.of();
+                });
     }
 }

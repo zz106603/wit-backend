@@ -72,16 +72,23 @@ public class HttpGoogleCalendarClient implements GoogleCalendarClient {
             GoogleCalendarEventsResponse response = responseEntity.getBody();
 
             if (response == null || response.items() == null) {
+                log.info(
+                        "[GoogleCalendarDebug] Response body/items empty. bodyPresent={}, itemsPresent={}",
+                        response != null,
+                        response != null && response.items() != null
+                );
                 return List.of();
             }
 
-            return response.items().stream()
-                    .filter(item -> !CANCELLED_STATUS.equals(item.status()))
-                    .filter(item -> StringUtils.hasText(item.id()))
-                    .map(this::toCalendarEvent)
+            log.info("[GoogleCalendarDebug] Response items count: {}", response.items().size());
+
+            List<CalendarEvent> calendarEvents = response.items().stream()
+                    .map(this::toCalendarEventWithDebug)
                     .filter(Objects::nonNull)
                     .limit(limit)
                     .toList();
+            log.info("[GoogleCalendarDebug] Mapped calendar events count: {}", calendarEvents.size());
+            return calendarEvents;
         } catch (RestClientResponseException exception) {
             log.info("[GoogleCalendarDebug] Response status code: {}", exception.getStatusCode().value());
             throw new GoogleIntegrationInfrastructureException("Google Calendar request failed", exception);
@@ -147,6 +154,64 @@ public class HttpGoogleCalendarClient implements GoogleCalendarClient {
                 endAt,
                 item.location()
         );
+    }
+
+    private CalendarEvent toCalendarEventWithDebug(GoogleCalendarEventsResponse.GoogleCalendarEventItem item) {
+        logGoogleCalendarRawItem(item);
+
+        if (CANCELLED_STATUS.equals(item.status())) {
+            log.info("[GoogleCalendarDebug] Event skipped. reason=cancelled, eventId={}", item.id());
+            return null;
+        }
+
+        if (!StringUtils.hasText(item.id())) {
+            log.info("[GoogleCalendarDebug] Event skipped. reason=blank-id, summary={}", item.summary());
+            return null;
+        }
+
+        CalendarEvent calendarEvent = toCalendarEvent(item);
+        if (calendarEvent == null) {
+            log.info(
+                    "[GoogleCalendarDebug] Event skipped. reason=start-missing-or-unparseable, eventId={}, summary={}, startDateTime={}, startDate={}",
+                    item.id(),
+                    item.summary(),
+                    dateTime(item.start()),
+                    date(item.start())
+            );
+            return null;
+        }
+
+        log.info(
+                "[GoogleCalendarDebug] Event mapped. eventId={}, title={}, rawLocation={}, startAt={}, endAt={}",
+                calendarEvent.eventId(),
+                calendarEvent.title(),
+                calendarEvent.rawLocation(),
+                calendarEvent.startAt(),
+                calendarEvent.endAt()
+        );
+        return calendarEvent;
+    }
+
+    private void logGoogleCalendarRawItem(GoogleCalendarEventsResponse.GoogleCalendarEventItem item) {
+        log.info(
+                "[GoogleCalendarDebug] Raw event item. eventId={}, status={}, summary={}, location={}, startDateTime={}, startDate={}, endDateTime={}, endDate={}",
+                item.id(),
+                item.status(),
+                item.summary(),
+                item.location(),
+                dateTime(item.start()),
+                date(item.start()),
+                dateTime(item.end()),
+                date(item.end())
+        );
+    }
+
+    private String dateTime(GoogleCalendarEventsResponse.GoogleCalendarEventDateTime dateTime) {
+        return dateTime == null ? null : dateTime.dateTime();
+    }
+
+    private String date(GoogleCalendarEventsResponse.GoogleCalendarEventDateTime dateTime) {
+        return dateTime == null ? null : dateTime.date();
     }
 
     private LocalDateTime toLocalDateTime(GoogleCalendarEventsResponse.GoogleCalendarEventDateTime dateTime) {

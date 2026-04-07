@@ -10,10 +10,13 @@ import java.time.Duration;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
 
 public class RedisLocationResolutionCache implements LocationResolutionCache {
 
+    private static final Logger log = LoggerFactory.getLogger(RedisLocationResolutionCache.class);
     private static final String KEY_PREFIX = "location:resolution:";
 
     private final StringRedisTemplate redisTemplate;
@@ -37,13 +40,17 @@ public class RedisLocationResolutionCache implements LocationResolutionCache {
             return Optional.empty();
         }
 
+        log.info("[RecommendationDebug] Redis location find before. key={}", key);
         String payload = redisTemplate.opsForValue().get(key);
         if (payload == null || payload.isBlank()) {
+            log.info("[RecommendationDebug] Redis location find after. key={}, hit=false", key);
             return Optional.empty();
         }
 
         try {
-            return Optional.of(objectMapper.readValue(payload, ResolvedLocation.class));
+            Optional<ResolvedLocation> result = Optional.of(objectMapper.readValue(payload, ResolvedLocation.class));
+            log.info("[RecommendationDebug] Redis location find after. key={}, hit=true", key);
+            return result;
         } catch (IOException exception) {
             throw new IllegalStateException("Failed to deserialize cached location resolution", exception);
         }
@@ -57,17 +64,20 @@ public class RedisLocationResolutionCache implements LocationResolutionCache {
         }
 
         try {
+            log.info("[RecommendationDebug] Redis location put before. key={}, status={}", key, resolvedLocation.status());
             redisTemplate.opsForValue().set(
                     key,
                     objectMapper.writeValueAsString(resolvedLocation),
                     ttlFor(resolvedLocation.status())
             );
+            log.info("[RecommendationDebug] Redis location put after. key={}", key);
         } catch (JsonProcessingException exception) {
             throw new IllegalStateException("Failed to serialize location resolution for cache", exception);
         }
     }
 
     private String toKey(String rawLocation) {
+        log.info("[RecommendationDebug] Redis location key generation start. rawLocation={}", rawLocation);
         if (rawLocation == null) {
             return null;
         }
@@ -77,7 +87,9 @@ public class RedisLocationResolutionCache implements LocationResolutionCache {
             return null;
         }
 
-        return KEY_PREFIX + normalized;
+        String key = KEY_PREFIX + normalized;
+        log.info("[RecommendationDebug] Redis location key generation end. key={}", key);
+        return key;
     }
 
     private Duration ttlFor(LocationResolutionStatus status) {
