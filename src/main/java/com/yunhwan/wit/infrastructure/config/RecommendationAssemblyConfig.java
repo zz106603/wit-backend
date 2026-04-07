@@ -18,6 +18,7 @@ import com.yunhwan.wit.domain.model.ResolvedLocation;
 import com.yunhwan.wit.domain.rule.OutfitRuleEngine;
 import com.yunhwan.wit.domain.rule.WeatherFailureFallbackDecisionProvider;
 import com.yunhwan.wit.infrastructure.location.CurrentLocationProperties;
+import com.yunhwan.wit.infrastructure.location.GooglePlacesProperties;
 import com.yunhwan.wit.infrastructure.location.LocationCacheProperties;
 import com.yunhwan.wit.infrastructure.location.RedisLocationResolutionCache;
 import com.yunhwan.wit.infrastructure.recommendation.RecommendationCacheProperties;
@@ -31,6 +32,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 @Configuration
 @EnableConfigurationProperties({
         CurrentLocationProperties.class,
+        GooglePlacesProperties.class,
         LocationCacheProperties.class,
         RecommendationCacheProperties.class
 })
