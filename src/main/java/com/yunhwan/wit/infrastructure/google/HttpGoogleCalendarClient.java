@@ -13,6 +13,7 @@ import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
@@ -26,6 +27,46 @@ public class HttpGoogleCalendarClient implements GoogleCalendarClient {
     private static final Logger log = LoggerFactory.getLogger(HttpGoogleCalendarClient.class);
     private static final String CANCELLED_STATUS = "cancelled";
     private static final String TIME_MAX_NOT_USED = "<not-used>";
+    private static final Set<String> GENERIC_TITLE_LOCATION_EXCLUSIONS = Set.of(
+            "회의",
+            "미팅",
+            "운동",
+            "생일",
+            "생일축하합니다",
+            "저녁약속",
+            "점심약속",
+            "약속",
+            "점심",
+            "저녁",
+            "회식"
+    );
+    private static final Set<String> PLACE_LIKE_TITLE_HINTS = Set.of(
+            "강남",
+            "강남역",
+            "잠실",
+            "잠실새내",
+            "성수",
+            "판교",
+            "홍대",
+            "합정",
+            "신촌",
+            "여의도",
+            "종로",
+            "을지로",
+            "건대",
+            "사당",
+            "교대",
+            "역삼",
+            "삼성",
+            "선릉",
+            "압구정",
+            "신사",
+            "이태원",
+            "명동",
+            "양재",
+            "서초",
+            "마포"
+    );
 
     private final RestClient googleCalendarRestClient;
     private final GoogleCalendarProperties properties;
@@ -152,8 +193,41 @@ public class HttpGoogleCalendarClient implements GoogleCalendarClient {
                 StringUtils.hasText(item.summary()) ? item.summary() : "제목 없음",
                 startAt,
                 endAt,
-                item.location()
+                locationCandidate(item.location(), item.summary())
         );
+    }
+
+    private String locationCandidate(String location, String summary) {
+        if (StringUtils.hasText(location)) {
+            return location;
+        }
+
+        if (isPlaceLikeSummary(summary)) {
+            return summary;
+        }
+
+        return null;
+    }
+
+    private boolean isPlaceLikeSummary(String summary) {
+        if (!StringUtils.hasText(summary)) {
+            return false;
+        }
+
+        String normalizedSummary = summary.replaceAll("[^0-9a-zA-Z가-힣]", "");
+        if (!StringUtils.hasText(normalizedSummary)) {
+            return false;
+        }
+
+        if (GENERIC_TITLE_LOCATION_EXCLUSIONS.contains(normalizedSummary)) {
+            return false;
+        }
+
+        if (normalizedSummary.endsWith("역")) {
+            return true;
+        }
+
+        return PLACE_LIKE_TITLE_HINTS.stream().anyMatch(normalizedSummary::contains);
     }
 
     private CalendarEvent toCalendarEventWithDebug(GoogleCalendarEventsResponse.GoogleCalendarEventItem item) {
@@ -220,11 +294,28 @@ public class HttpGoogleCalendarClient implements GoogleCalendarClient {
         }
 
         if (StringUtils.hasText(dateTime.dateTime())) {
-            return OffsetDateTime.parse(dateTime.dateTime()).toLocalDateTime();
+            ZoneId targetZone = ZoneId.of(properties.timeZone());
+            LocalDateTime converted = OffsetDateTime.parse(dateTime.dateTime())
+                    .atZoneSameInstant(targetZone)
+                    .toLocalDateTime();
+            log.info(
+                    "[GoogleCalendarDebug] Event datetime converted. rawDateTime={}, targetZone={}, convertedDateTime={}",
+                    dateTime.dateTime(),
+                    targetZone,
+                    converted
+            );
+            return converted;
         }
 
         if (StringUtils.hasText(dateTime.date())) {
-            return LocalDate.parse(dateTime.date()).atStartOfDay();
+            LocalDateTime converted = LocalDate.parse(dateTime.date()).atStartOfDay();
+            log.info(
+                    "[GoogleCalendarDebug] Event date converted. rawDate={}, targetZone={}, convertedDateTime={}",
+                    dateTime.date(),
+                    properties.timeZone(),
+                    converted
+            );
+            return converted;
         }
 
         return null;
