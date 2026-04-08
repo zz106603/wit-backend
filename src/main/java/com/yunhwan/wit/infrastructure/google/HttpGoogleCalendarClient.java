@@ -27,6 +27,7 @@ public class HttpGoogleCalendarClient implements GoogleCalendarClient {
     private static final Logger log = LoggerFactory.getLogger(HttpGoogleCalendarClient.class);
     private static final String CANCELLED_STATUS = "cancelled";
     private static final int EVENT_LOOKAHEAD_DAYS = 7;
+    private static final int EVENT_FETCH_BUFFER = 10;
     private static final Set<String> GENERIC_TITLE_LOCATION_EXCLUSIONS = Set.of(
             "회의",
             "미팅",
@@ -90,6 +91,7 @@ public class HttpGoogleCalendarClient implements GoogleCalendarClient {
         try {
             String timeMin = toRfc3339(now);
             String timeMax = toRfc3339(now.plusDays(EVENT_LOOKAHEAD_DAYS));
+            int fetchLimit = limit + EVENT_FETCH_BUFFER;
             ResponseEntity<GoogleCalendarEventsResponse> responseEntity = googleCalendarRestClient.get()
                     .uri(uriBuilder -> {
                         URI requestUri = uriBuilder
@@ -98,10 +100,10 @@ public class HttpGoogleCalendarClient implements GoogleCalendarClient {
                                 .queryParam("timeMax", timeMax)
                                 .queryParam("singleEvents", true)
                                 .queryParam("orderBy", "startTime")
-                                .queryParam("maxResults", limit)
+                                .queryParam("maxResults", fetchLimit)
                                 .queryParam("timeZone", properties.timeZone())
                                 .build();
-                        logGoogleCalendarRequestDebug(googleIntegration, requestUri, timeMin, timeMax, limit);
+                        logGoogleCalendarRequestDebug(googleIntegration, requestUri, timeMin, timeMax, limit, fetchLimit);
                         return requestUri;
                     })
                     .headers(headers -> headers.setBearerAuth(googleIntegration.accessToken()))
@@ -152,7 +154,8 @@ public class HttpGoogleCalendarClient implements GoogleCalendarClient {
             URI requestUri,
             String timeMin,
             String timeMax,
-            int limit
+            int limit,
+            int fetchLimit
     ) {
         log.info("[GoogleCalendarDebug] Base URL: {}", properties.baseUrl());
         log.info("[GoogleCalendarDebug] Path: {}", properties.eventsPath());
@@ -160,9 +163,10 @@ public class HttpGoogleCalendarClient implements GoogleCalendarClient {
         log.info("[GoogleCalendarDebug] Raw datetime before URI building - timeMin={}, timeMax={}", timeMin, timeMax);
         log.info("[GoogleCalendarDebug] Full request URL: {}", fullRequestUrl(requestUri));
         log.info(
-                "[GoogleCalendarDebug] Query params - timeMin={}, timeMax={}, singleEvents=true, orderBy=startTime, maxResults={}, timeZone={}",
+                "[GoogleCalendarDebug] Query params - timeMin={}, timeMax={}, singleEvents=true, orderBy=startTime, maxResults={}, finalLimit={}, timeZone={}",
                 timeMin,
                 timeMax,
+                fetchLimit,
                 limit,
                 properties.timeZone()
         );
