@@ -118,6 +118,8 @@ AI Summary
 - startAt
 - endAt
 - rawLocation
+  - Google Calendar location 우선
+  - location이 비어 있으면 장소성 있는 title을 보조 후보로 사용
 ```
 
 ---
