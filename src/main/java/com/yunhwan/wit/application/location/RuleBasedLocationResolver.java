@@ -5,8 +5,12 @@ import com.yunhwan.wit.domain.model.ResolvedLocation;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class RuleBasedLocationResolver {
+
+    private static final Logger log = LoggerFactory.getLogger(RuleBasedLocationResolver.class);
 
     private static final List<LocationRule> LOCATION_RULES = List.of(
             new LocationRule("강남", "서울특별시 강남구", 37.5172, 127.0473),
@@ -16,13 +20,29 @@ public class RuleBasedLocationResolver {
 
     public ResolvedLocation resolve(String rawLocation) {
         if (isMeaningless(rawLocation)) {
+            log.info(
+                    "[RecommendationDebug] rule location match. rawLocation={}, normalizedInput=null, result=rejected, reason=meaningless",
+                    rawLocation
+            );
             return ResolvedLocation.failed(rawLocation);
         }
 
         String normalizedRawLocation = normalize(rawLocation);
+        log.info(
+                "[RecommendationDebug] rule location match start. rawLocation={}, normalizedInput={}",
+                rawLocation,
+                normalizedRawLocation
+        );
 
         for (LocationRule rule : LOCATION_RULES) {
             if (rule.matchesExact(normalizedRawLocation)) {
+                log.info(
+                        "[RecommendationDebug] rule location match. rawLocation={}, normalizedInput={}, result=matched, keyword={}, displayLocation={}, confidence=1.0",
+                        rawLocation,
+                        normalizedRawLocation,
+                        rule.keyword(),
+                        rule.displayLocation()
+                );
                 return ResolvedLocation.resolved(
                         rawLocation,
                         rule.keyword(),
@@ -35,20 +55,11 @@ public class RuleBasedLocationResolver {
             }
         }
 
-        for (LocationRule rule : LOCATION_RULES) {
-            if (rule.matchesContained(normalizedRawLocation)) {
-                return ResolvedLocation.approximated(
-                        rawLocation,
-                        rule.keyword(),
-                        rule.displayLocation(),
-                        rule.lat(),
-                        rule.lng(),
-                        0.6,
-                        LocationResolvedBy.RULE
-                );
-            }
-        }
-
+        log.info(
+                "[RecommendationDebug] rule location match. rawLocation={}, normalizedInput={}, result=not-matched, reason=strict-exact-only",
+                rawLocation,
+                normalizedRawLocation
+        );
         return ResolvedLocation.failed(rawLocation);
     }
 
@@ -79,10 +90,6 @@ public class RuleBasedLocationResolver {
             String normalizedKeyword = normalizeKeyword(keyword);
             String normalizedDisplayLocation = normalizeKeyword(displayLocation);
             return normalizedRawLocation.equals(normalizedKeyword) || normalizedRawLocation.equals(normalizedDisplayLocation);
-        }
-
-        private boolean matchesContained(String normalizedRawLocation) {
-            return normalizedRawLocation.contains(normalizeKeyword(keyword));
         }
 
         private String normalizeKeyword(String value) {
