@@ -114,7 +114,7 @@ class DefaultLocationResolverTest {
     }
 
     @Test
-    void google_places와_ai가_실패하면_기존_rule_근사결과를_유지한다() {
+    void google_places와_ai가_실패하면_느슨한_rule_근사결과를_사용하지_않는다() {
         CountingGooglePlacesLocationResolver googlePlacesResolver = new CountingGooglePlacesLocationResolver(
                 ResolvedLocation.failed("강남 회식")
         );
@@ -130,12 +130,45 @@ class DefaultLocationResolverTest {
         ResolvedLocation result = resolver.resolve("강남 회식");
 
         assertThat(result.rawLocation()).isEqualTo("강남 회식");
-        assertThat(result.normalizedQuery()).isEqualTo("강남");
-        assertThat(result.displayLocation()).isEqualTo("서울특별시 강남구");
-        assertThat(result.resolvedBy()).isEqualTo(LocationResolvedBy.RULE);
-        assertThat(result.status()).isEqualTo(LocationResolutionStatus.APPROXIMATED);
+        assertThat(result.normalizedQuery()).isNull();
+        assertThat(result.displayLocation()).isNull();
+        assertThat(result.resolvedBy()).isNull();
+        assertThat(result.status()).isEqualTo(LocationResolutionStatus.FAILED);
         assertThat(googlePlacesResolver.invocationCount()).isEqualTo(1);
         assertThat(aiFallbackResolver.invocationCount()).isEqualTo(1);
+    }
+
+    @Test
+    void 규칙에_없는_홍대는_google_places로_해결한다() {
+        CountingGooglePlacesLocationResolver googlePlacesResolver = new CountingGooglePlacesLocationResolver(
+                ResolvedLocation.resolved(
+                        "홍대",
+                        "홍대입구역",
+                        "서울특별시 마포구 양화로",
+                        37.5572,
+                        126.9245,
+                        0.85,
+                        LocationResolvedBy.GOOGLE_PLACES
+                )
+        );
+        CountingAiLocationFallbackResolver aiFallbackResolver = new CountingAiLocationFallbackResolver(
+                ResolvedLocation.failed("홍대")
+        );
+        DefaultLocationResolver resolver = new DefaultLocationResolver(
+                ruleBasedLocationResolver,
+                googlePlacesResolver,
+                aiFallbackResolver
+        );
+
+        ResolvedLocation result = resolver.resolve("홍대");
+
+        assertThat(result.status()).isEqualTo(LocationResolutionStatus.RESOLVED);
+        assertThat(result.resolvedBy()).isEqualTo(LocationResolvedBy.GOOGLE_PLACES);
+        assertThat(result.rawLocation()).isEqualTo("홍대");
+        assertThat(result.normalizedQuery()).isEqualTo("홍대입구역");
+        assertThat(result.displayLocation()).isEqualTo("서울특별시 마포구 양화로");
+        assertThat(googlePlacesResolver.invocationCount()).isEqualTo(1);
+        assertThat(aiFallbackResolver.invocationCount()).isZero();
     }
 
     @Test

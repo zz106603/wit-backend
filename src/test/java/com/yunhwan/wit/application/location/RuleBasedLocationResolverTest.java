@@ -26,17 +26,31 @@ class RuleBasedLocationResolverTest {
     }
 
     @Test
-    void 자연어_문장에_지역키워드가_포함되면_근사해결한다() {
+    void 자연어_문장에_지역키워드가_포함되어도_느슨하게_매칭하지_않는다() {
         ResolvedLocation result = resolver.resolve("강남 회식");
 
-        assertThat(result.status()).isEqualTo(LocationResolutionStatus.APPROXIMATED);
-        assertThat(result.resolvedBy()).isEqualTo(LocationResolvedBy.RULE);
+        assertThat(result.status()).isEqualTo(LocationResolutionStatus.FAILED);
         assertThat(result.rawLocation()).isEqualTo("강남 회식");
-        assertThat(result.normalizedQuery()).isEqualTo("강남");
-        assertThat(result.displayLocation()).isEqualTo("서울특별시 강남구");
-        assertThat(result.lat()).isEqualTo(37.5172);
-        assertThat(result.lng()).isEqualTo(127.0473);
-        assertThat(result.confidence()).isEqualTo(0.6);
+        assertThat(result.normalizedQuery()).isNull();
+        assertThat(result.displayLocation()).isNull();
+        assertThat(result.lat()).isNull();
+        assertThat(result.lng()).isNull();
+        assertThat(result.confidence()).isNull();
+        assertThat(result.resolvedBy()).isNull();
+    }
+
+    @Test
+    void 규칙에_없는_장소명은_google_places로_넘길수_있도록_failed를_반환한다() {
+        ResolvedLocation result = resolver.resolve("홍대");
+
+        assertThat(result.status()).isEqualTo(LocationResolutionStatus.FAILED);
+        assertThat(result.rawLocation()).isEqualTo("홍대");
+        assertThat(result.normalizedQuery()).isNull();
+        assertThat(result.displayLocation()).isNull();
+        assertThat(result.lat()).isNull();
+        assertThat(result.lng()).isNull();
+        assertThat(result.confidence()).isNull();
+        assertThat(result.resolvedBy()).isNull();
     }
 
     @Test

@@ -2,6 +2,7 @@ package com.yunhwan.wit.application.recommendation;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.yunhwan.wit.application.location.CurrentLocationProvider;
 import com.yunhwan.wit.application.location.LocationResolver;
 import com.yunhwan.wit.application.summary.SummaryGenerator;
 import com.yunhwan.wit.application.weather.WeatherClient;
@@ -97,6 +98,34 @@ class RecommendationServiceTest {
         assertThat(result.resolvedLocation()).isEqualTo(currentLocation);
         assertThat(result.startWeather().regionName()).isEqualTo(currentLocation.displayLocation());
         assertThat(result.endWeather().regionName()).isEqualTo(currentLocation.displayLocation());
+    }
+
+    @Test
+    void 실제_현재위치가_없으면_currentWeather에_목적지를_사용한다() {
+        ResolvedLocation currentLocation = currentLocation();
+        ResolvedLocation eventLocation = eventLocation();
+        StubWeatherClient weatherClient = new StubWeatherClient();
+        weatherClient.setCurrentWeather(eventLocation, snapshot(eventLocation, currentTime, 22, 22, 10, WeatherType.CLEAR));
+        weatherClient.setTimedWeather(eventLocation, calendarEvent.startAt(),
+                snapshot(eventLocation, calendarEvent.startAt(), 21, 21, 20, WeatherType.CLOUDY));
+        weatherClient.setTimedWeather(eventLocation, calendarEvent.endAt(),
+                snapshot(eventLocation, calendarEvent.endAt(), 18, 18, 70, WeatherType.RAIN));
+
+        RecommendationService recommendationService = new RecommendationService(
+                rawLocation -> eventLocation,
+                defaultCurrentLocationProvider(currentLocation),
+                weatherClient,
+                new OutfitRuleEngine(),
+                new WeatherFailureFallbackDecisionProvider(),
+                new StubSummaryGenerator(),
+                new InMemoryRecommendationCache(),
+                clock
+        );
+
+        RecommendationResult result = recommendationService.recommend(calendarEvent);
+
+        assertThat(result.weatherFallbackApplied()).isFalse();
+        assertThat(result.currentWeather().regionName()).isEqualTo(eventLocation.displayLocation());
     }
 
     @Test
@@ -294,6 +323,20 @@ class RecommendationServiceTest {
                 1.0,
                 LocationResolvedBy.RULE
         );
+    }
+
+    private CurrentLocationProvider defaultCurrentLocationProvider(ResolvedLocation currentLocation) {
+        return new CurrentLocationProvider() {
+            @Override
+            public ResolvedLocation getCurrentLocation() {
+                return currentLocation;
+            }
+
+            @Override
+            public boolean hasRealCurrentLocation() {
+                return false;
+            }
+        };
     }
 
     private static final class StubSummaryGenerator implements SummaryGenerator {
