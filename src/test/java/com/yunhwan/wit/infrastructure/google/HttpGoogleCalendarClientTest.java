@@ -49,7 +49,7 @@ class HttpGoogleCalendarClientTest {
                 .andExpect(queryParam("timeMax", "2026-04-14T00:00:00Z"))
                 .andExpect(queryParam("singleEvents", "true"))
                 .andExpect(queryParam("orderBy", "startTime"))
-                .andExpect(queryParam("maxResults", "3"))
+                .andExpect(queryParam("maxResults", "13"))
                 .andExpect(queryParam("timeZone", "Asia/Seoul"))
                 .andRespond(withSuccess("""
                         {
@@ -86,6 +86,69 @@ class HttpGoogleCalendarClientTest {
         assertThat(events.getFirst().startAt()).isEqualTo(LocalDateTime.of(2026, 4, 7, 18, 0));
         assertThat(events.getFirst().endAt()).isEqualTo(LocalDateTime.of(2026, 4, 7, 20, 0));
         assertThat(events.getFirst().rawLocation()).isEqualTo("강남");
+        server.verify();
+    }
+
+    @Test
+    void 앞쪽_이벤트가_필터링되어도_뒤쪽_유효한_일정으로_최대_3개를_채운다() {
+        server.expect(requestTo(startsWith("https://www.googleapis.test/calendar/v3/calendars/primary/events")))
+                .andExpect(method(HttpMethod.GET))
+                .andExpect(queryParam("maxResults", "13"))
+                .andRespond(withSuccess("""
+                        {
+                          "items": [
+                            {
+                              "id": "cancelled-event",
+                              "status": "cancelled",
+                              "summary": "취소 일정",
+                              "start": { "dateTime": "2026-04-07T10:00:00+09:00" },
+                              "end": { "dateTime": "2026-04-07T11:00:00+09:00" }
+                            },
+                            {
+                              "id": "invalid-event",
+                              "status": "confirmed",
+                              "summary": "시간 없음"
+                            },
+                            {
+                              "id": "event-1",
+                              "status": "confirmed",
+                              "summary": "강남",
+                              "start": { "dateTime": "2026-04-07T18:00:00+09:00" },
+                              "end": { "dateTime": "2026-04-07T19:00:00+09:00" }
+                            },
+                            {
+                              "id": "event-2",
+                              "status": "confirmed",
+                              "summary": "판교",
+                              "start": { "dateTime": "2026-04-08T18:00:00+09:00" },
+                              "end": { "dateTime": "2026-04-08T19:00:00+09:00" }
+                            },
+                            {
+                              "id": "event-3",
+                              "status": "confirmed",
+                              "summary": "홍대",
+                              "start": { "dateTime": "2026-04-09T18:00:00+09:00" },
+                              "end": { "dateTime": "2026-04-09T19:00:00+09:00" }
+                            },
+                            {
+                              "id": "event-4",
+                              "status": "confirmed",
+                              "summary": "성수",
+                              "start": { "dateTime": "2026-04-10T18:00:00+09:00" },
+                              "end": { "dateTime": "2026-04-10T19:00:00+09:00" }
+                            }
+                          ]
+                        }
+                        """, MediaType.APPLICATION_JSON));
+
+        List<CalendarEvent> events = googleCalendarClient.fetchUpcomingEvents(
+                googleIntegration(),
+                LocalDateTime.of(2026, 4, 7, 9, 0),
+                3
+        );
+
+        assertThat(events).extracting(CalendarEvent::eventId)
+                .containsExactly("event-1", "event-2", "event-3");
         server.verify();
     }
 
