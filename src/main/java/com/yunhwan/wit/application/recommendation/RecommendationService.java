@@ -4,6 +4,7 @@ import com.yunhwan.wit.application.location.CurrentLocationProvider;
 import com.yunhwan.wit.application.location.LocationResolver;
 import com.yunhwan.wit.application.summary.SummaryGenerator;
 import com.yunhwan.wit.application.weather.WeatherClient;
+import com.yunhwan.wit.application.weather.WeatherForecastSnapshots;
 import com.yunhwan.wit.domain.model.CalendarEvent;
 import com.yunhwan.wit.domain.model.LocationResolutionStatus;
 import com.yunhwan.wit.domain.model.OutfitDecision;
@@ -71,8 +72,13 @@ public class RecommendationService {
         ResolvedLocation resolvedLocation = resolveEventLocation(calendarEvent, currentLocation);
 
         WeatherSnapshot currentWeather = fetchCurrentWeather(currentLocation);
-        WeatherSnapshot startWeather = fetchWeatherAt(resolvedLocation, calendarEvent.startAt(), "start");
-        WeatherSnapshot endWeather = fetchWeatherAt(resolvedLocation, calendarEvent.endAt(), "end");
+        WeatherForecastSnapshots forecastSnapshots = fetchWeatherRange(
+                resolvedLocation,
+                calendarEvent.startAt(),
+                calendarEvent.endAt()
+        );
+        WeatherSnapshot startWeather = forecastSnapshots == null ? null : forecastSnapshots.startWeather();
+        WeatherSnapshot endWeather = forecastSnapshots == null ? null : forecastSnapshots.endWeather();
 
         if (currentWeather == null || startWeather == null || endWeather == null) {
             RecommendationResult fallbackResult = new RecommendationResult(
@@ -210,35 +216,36 @@ public class RecommendationService {
         }
     }
 
-    private WeatherSnapshot fetchWeatherAt(
+    private WeatherForecastSnapshots fetchWeatherRange(
             ResolvedLocation location,
-            java.time.LocalDateTime targetTime,
-            String purpose
+            LocalDateTime startTime,
+            LocalDateTime endTime
     ) {
         try {
             log.info(
-                    "[RecommendationDebug] {} weather before. location={}, lat={}, lng={}, targetTime={}",
-                    purpose,
+                    "[RecommendationDebug] forecast weather range before. location={}, lat={}, lng={}, startTime={}, endTime={}",
                     location.displayLocation(),
                     location.lat(),
                     location.lng(),
-                    targetTime
+                    startTime,
+                    endTime
             );
-            WeatherSnapshot snapshot = weatherClient.fetchWeatherAt(location, targetTime);
+            WeatherForecastSnapshots snapshots = weatherClient.fetchWeatherRange(location, startTime, endTime);
             log.info(
-                    "[RecommendationDebug] {} weather after. location={}, targetTime={}, weatherType={}",
-                    purpose,
+                    "[RecommendationDebug] forecast weather range after. location={}, startTime={}, endTime={}, startType={}, endType={}",
                     location.displayLocation(),
-                    targetTime,
-                    snapshot.weatherType()
+                    startTime,
+                    endTime,
+                    snapshots.startWeather().weatherType(),
+                    snapshots.endWeather().weatherType()
             );
-            return snapshot;
+            return snapshots;
         } catch (RuntimeException exception) {
             log.warn(
-                    "[RecommendationDebug] {} weather failed. location={}, targetTime={}",
-                    purpose,
+                    "[RecommendationDebug] forecast weather range failed. location={}, startTime={}, endTime={}",
                     location.displayLocation(),
-                    targetTime,
+                    startTime,
+                    endTime,
                     exception
             );
             return null;
