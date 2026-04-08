@@ -41,11 +41,12 @@ class HttpGoogleCalendarClientTest {
     }
 
     @Test
-    void Google_Calendar_다가오는_일정_3개를_CalendarEvent로_변환한다() {
+    void Google_Calendar_7일이내_일정을_최대_3개_조회한다() {
         server.expect(requestTo(startsWith("https://www.googleapis.test/calendar/v3/calendars/primary/events")))
                 .andExpect(method(HttpMethod.GET))
                 .andExpect(header(HttpHeaders.AUTHORIZATION, "Bearer access-token"))
                 .andExpect(queryParam("timeMin", "2026-04-07T00:00:00Z"))
+                .andExpect(queryParam("timeMax", "2026-04-14T00:00:00Z"))
                 .andExpect(queryParam("singleEvents", "true"))
                 .andExpect(queryParam("orderBy", "startTime"))
                 .andExpect(queryParam("maxResults", "3"))

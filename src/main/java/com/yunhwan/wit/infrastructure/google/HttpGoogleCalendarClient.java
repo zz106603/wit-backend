@@ -26,7 +26,7 @@ public class HttpGoogleCalendarClient implements GoogleCalendarClient {
 
     private static final Logger log = LoggerFactory.getLogger(HttpGoogleCalendarClient.class);
     private static final String CANCELLED_STATUS = "cancelled";
-    private static final String TIME_MAX_NOT_USED = "<not-used>";
+    private static final int EVENT_LOOKAHEAD_DAYS = 7;
     private static final Set<String> GENERIC_TITLE_LOCATION_EXCLUSIONS = Set.of(
             "회의",
             "미팅",
@@ -89,17 +89,19 @@ public class HttpGoogleCalendarClient implements GoogleCalendarClient {
 
         try {
             String timeMin = toRfc3339(now);
+            String timeMax = toRfc3339(now.plusDays(EVENT_LOOKAHEAD_DAYS));
             ResponseEntity<GoogleCalendarEventsResponse> responseEntity = googleCalendarRestClient.get()
                     .uri(uriBuilder -> {
                         URI requestUri = uriBuilder
                                 .path(properties.eventsPath())
                                 .queryParam("timeMin", timeMin)
+                                .queryParam("timeMax", timeMax)
                                 .queryParam("singleEvents", true)
                                 .queryParam("orderBy", "startTime")
                                 .queryParam("maxResults", limit)
                                 .queryParam("timeZone", properties.timeZone())
                                 .build();
-                        logGoogleCalendarRequestDebug(googleIntegration, requestUri, timeMin, limit);
+                        logGoogleCalendarRequestDebug(googleIntegration, requestUri, timeMin, timeMax, limit);
                         return requestUri;
                     })
                     .headers(headers -> headers.setBearerAuth(googleIntegration.accessToken()))
@@ -129,6 +131,13 @@ public class HttpGoogleCalendarClient implements GoogleCalendarClient {
                     .limit(limit)
                     .toList();
             log.info("[GoogleCalendarDebug] Mapped calendar events count: {}", calendarEvents.size());
+            if (!calendarEvents.isEmpty()) {
+                log.info(
+                        "[GoogleCalendarDebug] Mapped calendar event time range. firstStartAt={}, lastStartAt={}",
+                        calendarEvents.getFirst().startAt(),
+                        calendarEvents.getLast().startAt()
+                );
+            }
             return calendarEvents;
         } catch (RestClientResponseException exception) {
             log.info("[GoogleCalendarDebug] Response status code: {}", exception.getStatusCode().value());
@@ -142,17 +151,18 @@ public class HttpGoogleCalendarClient implements GoogleCalendarClient {
             GoogleIntegration googleIntegration,
             URI requestUri,
             String timeMin,
+            String timeMax,
             int limit
     ) {
         log.info("[GoogleCalendarDebug] Base URL: {}", properties.baseUrl());
         log.info("[GoogleCalendarDebug] Path: {}", properties.eventsPath());
         log.info("[GoogleCalendarDebug] Calendar ID: {}", calendarId());
-        log.info("[GoogleCalendarDebug] Raw datetime before URI building - timeMin={}, timeMax={}", timeMin, TIME_MAX_NOT_USED);
+        log.info("[GoogleCalendarDebug] Raw datetime before URI building - timeMin={}, timeMax={}", timeMin, timeMax);
         log.info("[GoogleCalendarDebug] Full request URL: {}", fullRequestUrl(requestUri));
         log.info(
                 "[GoogleCalendarDebug] Query params - timeMin={}, timeMax={}, singleEvents=true, orderBy=startTime, maxResults={}, timeZone={}",
                 timeMin,
-                TIME_MAX_NOT_USED,
+                timeMax,
                 limit,
                 properties.timeZone()
         );
