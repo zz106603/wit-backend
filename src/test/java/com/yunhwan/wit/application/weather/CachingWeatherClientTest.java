@@ -51,6 +51,27 @@ class CachingWeatherClientTest {
         assertThat(cache.findForecast(location, targetTime)).contains(snapshot);
     }
 
+    @Test
+    void 예보_range_캐시미스면_delegate_range를_한번만_호출하고_둘다_저장한다() {
+        ResolvedLocation location = resolvedLocation();
+        LocalDateTime startTime = LocalDateTime.of(2026, 4, 1, 18, 0);
+        LocalDateTime endTime = LocalDateTime.of(2026, 4, 1, 21, 0);
+        WeatherSnapshot startSnapshot = forecastSnapshot(startTime);
+        WeatherSnapshot endSnapshot = forecastSnapshot(endTime);
+        CountingWeatherClient delegate = new CountingWeatherClient(currentSnapshot(), startSnapshot, endSnapshot);
+        InMemoryWeatherCache cache = new InMemoryWeatherCache();
+        CachingWeatherClient weatherClient = new CachingWeatherClient(delegate, cache, clock);
+
+        WeatherForecastSnapshots result = weatherClient.fetchWeatherRange(location, startTime, endTime);
+
+        assertThat(result.startWeather()).isEqualTo(startSnapshot);
+        assertThat(result.endWeather()).isEqualTo(endSnapshot);
+        assertThat(delegate.forecastRangeInvocationCount()).isEqualTo(1);
+        assertThat(delegate.forecastInvocationCount()).isZero();
+        assertThat(cache.findForecast(location, startTime)).contains(startSnapshot);
+        assertThat(cache.findForecast(location, endTime)).contains(endSnapshot);
+    }
+
     private ResolvedLocation resolvedLocation() {
         return ResolvedLocation.resolved(
                 "강남 회식",
@@ -75,9 +96,13 @@ class CachingWeatherClientTest {
     }
 
     private WeatherSnapshot forecastSnapshot() {
+        return forecastSnapshot(LocalDateTime.of(2026, 4, 1, 18, 0));
+    }
+
+    private WeatherSnapshot forecastSnapshot(LocalDateTime targetTime) {
         return new WeatherSnapshot(
                 "서울특별시 강남구",
-                LocalDateTime.of(2026, 4, 1, 18, 0),
+                targetTime,
                 16,
                 14,
                 70,
@@ -89,12 +114,23 @@ class CachingWeatherClientTest {
 
         private final AtomicInteger currentInvocationCount = new AtomicInteger();
         private final AtomicInteger forecastInvocationCount = new AtomicInteger();
+        private final AtomicInteger forecastRangeInvocationCount = new AtomicInteger();
         private final WeatherSnapshot currentSnapshot;
         private final WeatherSnapshot forecastSnapshot;
+        private final WeatherSnapshot endForecastSnapshot;
 
         private CountingWeatherClient(WeatherSnapshot currentSnapshot, WeatherSnapshot forecastSnapshot) {
+            this(currentSnapshot, forecastSnapshot, forecastSnapshot);
+        }
+
+        private CountingWeatherClient(
+                WeatherSnapshot currentSnapshot,
+                WeatherSnapshot forecastSnapshot,
+                WeatherSnapshot endForecastSnapshot
+        ) {
             this.currentSnapshot = currentSnapshot;
             this.forecastSnapshot = forecastSnapshot;
+            this.endForecastSnapshot = endForecastSnapshot;
         }
 
         @Override
@@ -109,12 +145,26 @@ class CachingWeatherClientTest {
             return forecastSnapshot;
         }
 
+        @Override
+        public WeatherForecastSnapshots fetchWeatherRange(
+                ResolvedLocation location,
+                LocalDateTime startTime,
+                LocalDateTime endTime
+        ) {
+            forecastRangeInvocationCount.incrementAndGet();
+            return new WeatherForecastSnapshots(forecastSnapshot, endForecastSnapshot);
+        }
+
         private int currentInvocationCount() {
             return currentInvocationCount.get();
         }
 
         private int forecastInvocationCount() {
             return forecastInvocationCount.get();
+        }
+
+        private int forecastRangeInvocationCount() {
+            return forecastRangeInvocationCount.get();
         }
     }
 
