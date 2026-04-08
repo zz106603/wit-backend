@@ -46,15 +46,32 @@ public class DefaultLocationResolver implements LocationResolver {
         );
 
         if (ruleResult.status() == LocationResolutionStatus.RESOLVED) {
+            log.info(
+                    "[RecommendationDebug] location final chosen. rawLocation={}, source=RULE, status={}, displayLocation={}",
+                    rawLocation,
+                    ruleResult.status(),
+                    ruleResult.displayLocation()
+            );
             return ruleResult;
         }
 
         if (isMeaninglessInput(rawLocation)) {
+            log.info(
+                    "[RecommendationDebug] location final chosen. rawLocation={}, source=FALLBACK, status={}, reason=meaningless",
+                    rawLocation,
+                    ruleResult.status()
+            );
             return ruleResult;
         }
 
         ResolvedLocation googlePlacesResult = resolveByGooglePlaces(rawLocation);
         if (isSuccessfulGooglePlacesResult(googlePlacesResult, rawLocation)) {
+            log.info(
+                    "[RecommendationDebug] location final chosen. rawLocation={}, source=GOOGLE_PLACES, status={}, displayLocation={}",
+                    rawLocation,
+                    googlePlacesResult.status(),
+                    googlePlacesResult.displayLocation()
+            );
             return googlePlacesResult;
         }
 
@@ -67,9 +84,20 @@ public class DefaultLocationResolver implements LocationResolver {
                 aiResult.resolvedBy()
         );
         if (isSuccessfulAiResult(aiResult, rawLocation)) {
+            log.info(
+                    "[RecommendationDebug] location final chosen. rawLocation={}, source=AI, status={}, displayLocation={}",
+                    rawLocation,
+                    aiResult.status(),
+                    aiResult.displayLocation()
+            );
             return aiResult;
         }
 
+        log.info(
+                "[RecommendationDebug] location final chosen. rawLocation={}, source=FALLBACK, status={}, reason=all-resolvers-failed",
+                rawLocation,
+                ruleResult.status()
+        );
         return ruleResult;
     }
 

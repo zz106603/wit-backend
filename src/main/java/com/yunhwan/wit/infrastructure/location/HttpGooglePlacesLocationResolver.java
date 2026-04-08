@@ -99,6 +99,14 @@ public class HttpGooglePlacesLocationResolver implements GooglePlacesLocationRes
         String displayLocation = StringUtils.hasText(place.formattedAddress())
                 ? place.formattedAddress()
                 : displayName;
+        log.info(
+                "[RecommendationDebug] Google Places response mapped. rawLocation={}, displayName={}, displayLocation={}, lat={}, lng={}",
+                rawLocation,
+                displayName,
+                displayLocation,
+                place.location().latitude(),
+                place.location().longitude()
+        );
 
         return ResolvedLocation.resolved(
                 rawLocation,
