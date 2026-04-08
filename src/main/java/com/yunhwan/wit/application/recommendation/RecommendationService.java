@@ -70,8 +70,9 @@ public class RecommendationService {
 
         ResolvedLocation currentLocation = currentLocationProvider.getCurrentLocation();
         ResolvedLocation resolvedLocation = resolveEventLocation(calendarEvent, currentLocation);
+        ResolvedLocation currentWeatherLocation = selectCurrentWeatherLocation(currentLocation, resolvedLocation);
 
-        WeatherSnapshot currentWeather = fetchCurrentWeather(currentLocation);
+        WeatherSnapshot currentWeather = fetchCurrentWeather(currentWeatherLocation);
         WeatherForecastSnapshots forecastSnapshots = fetchWeatherRange(
                 resolvedLocation,
                 calendarEvent.startAt(),
@@ -193,6 +194,23 @@ public class RecommendationService {
             );
             return currentLocation;
         }
+    }
+
+    private ResolvedLocation selectCurrentWeatherLocation(
+            ResolvedLocation currentLocation,
+            ResolvedLocation resolvedLocation
+    ) {
+        boolean hasRealCurrentLocation = currentLocationProvider.hasRealCurrentLocation();
+        ResolvedLocation currentWeatherLocation = hasRealCurrentLocation ? currentLocation : resolvedLocation;
+        log.info(
+                "[RecommendationDebug] current weather location selected. currentLocationSource={}, currentWeatherSource={}, currentLocation={}, resolvedLocation={}, currentWeatherLocation={}",
+                hasRealCurrentLocation ? "REAL" : "DEFAULT",
+                hasRealCurrentLocation ? "CURRENT_LOCATION" : "FALLBACK_TO_DESTINATION",
+                currentLocation.displayLocation(),
+                resolvedLocation.displayLocation(),
+                currentWeatherLocation.displayLocation()
+        );
+        return currentWeatherLocation;
     }
 
     private WeatherSnapshot fetchCurrentWeather(ResolvedLocation location) {

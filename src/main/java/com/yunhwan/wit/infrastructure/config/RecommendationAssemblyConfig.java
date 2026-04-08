@@ -98,15 +98,25 @@ public class RecommendationAssemblyConfig {
 
     @Bean
     public CurrentLocationProvider currentLocationProvider(CurrentLocationProperties properties) {
-        return () -> ResolvedLocation.resolved(
-                "현재 위치",
-                properties.normalizedQuery(),
-                properties.displayLocation(),
-                properties.lat(),
-                properties.lng(),
-                1.0,
-                LocationResolvedBy.RULE
-        );
+        return new CurrentLocationProvider() {
+            @Override
+            public ResolvedLocation getCurrentLocation() {
+                return ResolvedLocation.resolved(
+                        "현재 위치",
+                        properties.normalizedQuery(),
+                        properties.displayLocation(),
+                        properties.lat(),
+                        properties.lng(),
+                        1.0,
+                        LocationResolvedBy.RULE
+                );
+            }
+
+            @Override
+            public boolean hasRealCurrentLocation() {
+                return !properties.isDefaultLocation();
+            }
+        };
     }
 
     @Bean
