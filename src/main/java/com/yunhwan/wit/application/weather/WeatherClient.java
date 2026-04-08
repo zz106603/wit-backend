@@ -9,4 +9,15 @@ public interface WeatherClient {
     WeatherSnapshot fetchCurrentWeather(ResolvedLocation location);
 
     WeatherSnapshot fetchWeatherAt(ResolvedLocation location, LocalDateTime targetTime);
+
+    default WeatherForecastSnapshots fetchWeatherRange(
+            ResolvedLocation location,
+            LocalDateTime startTime,
+            LocalDateTime endTime
+    ) {
+        return new WeatherForecastSnapshots(
+                fetchWeatherAt(location, startTime),
+                fetchWeatherAt(location, endTime)
+        );
+    }
 }

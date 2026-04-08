@@ -52,6 +52,30 @@ public class CachingWeatherClient implements WeatherClient {
         return weatherSnapshot;
     }
 
+    @Override
+    public WeatherForecastSnapshots fetchWeatherRange(
+            ResolvedLocation location,
+            LocalDateTime startTime,
+            LocalDateTime endTime
+    ) {
+        WeatherSnapshot cachedStart = readForecastFromCache(location, startTime);
+        WeatherSnapshot cachedEnd = readForecastFromCache(location, endTime);
+        if (cachedStart != null && cachedEnd != null) {
+            return new WeatherForecastSnapshots(cachedStart, cachedEnd);
+        }
+
+        if (cachedStart == null && cachedEnd == null) {
+            WeatherForecastSnapshots snapshots = delegate.fetchWeatherRange(location, startTime, endTime);
+            writeForecastToCache(location, startTime, snapshots.startWeather());
+            writeForecastToCache(location, endTime, snapshots.endWeather());
+            return snapshots;
+        }
+
+        WeatherSnapshot startWeather = cachedStart != null ? cachedStart : fetchWeatherAt(location, startTime);
+        WeatherSnapshot endWeather = cachedEnd != null ? cachedEnd : fetchWeatherAt(location, endTime);
+        return new WeatherForecastSnapshots(startWeather, endWeather);
+    }
+
     private WeatherSnapshot readCurrentFromCache(ResolvedLocation location, LocalDateTime cacheTime) {
         try {
             return weatherCache.findCurrent(location, cacheTime).orElse(null);
