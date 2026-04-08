@@ -5,4 +5,8 @@ import com.yunhwan.wit.domain.model.ResolvedLocation;
 public interface CurrentLocationProvider {
 
     ResolvedLocation getCurrentLocation();
+
+    default boolean hasRealCurrentLocation() {
+        return true;
+    }
 }
