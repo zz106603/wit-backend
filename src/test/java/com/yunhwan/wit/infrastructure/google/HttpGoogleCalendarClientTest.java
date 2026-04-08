@@ -89,6 +89,121 @@ class HttpGoogleCalendarClientTest {
     }
 
     @Test
+    void Google_Calendar_dateTime_offset을_Asia_Seoul로_변환한다() {
+        server.expect(requestTo(startsWith("https://www.googleapis.test/calendar/v3/calendars/primary/events")))
+                .andRespond(withSuccess("""
+                        {
+                          "items": [
+                            {
+                              "id": "event-1",
+                              "status": "confirmed",
+                              "summary": "저녁 회식",
+                              "location": "강남",
+                              "start": { "dateTime": "2026-04-07T09:00:00Z" },
+                              "end": { "dateTime": "2026-04-07T11:00:00Z" }
+                            }
+                          ]
+                        }
+                        """, MediaType.APPLICATION_JSON));
+
+        List<CalendarEvent> events = googleCalendarClient.fetchUpcomingEvents(
+                googleIntegration(),
+                LocalDateTime.of(2026, 4, 7, 9, 0),
+                3
+        );
+
+        assertThat(events).hasSize(1);
+        assertThat(events.getFirst().startAt()).isEqualTo(LocalDateTime.of(2026, 4, 7, 18, 0));
+        assertThat(events.getFirst().endAt()).isEqualTo(LocalDateTime.of(2026, 4, 7, 20, 0));
+        server.verify();
+    }
+
+    @Test
+    void location_필드가_있으면_title보다_location을_rawLocation으로_사용한다() {
+        server.expect(requestTo(startsWith("https://www.googleapis.test/calendar/v3/calendars/primary/events")))
+                .andRespond(withSuccess("""
+                        {
+                          "items": [
+                            {
+                              "id": "event-1",
+                              "status": "confirmed",
+                              "summary": "강남",
+                              "location": "판교",
+                              "start": { "dateTime": "2026-04-07T18:00:00+09:00" },
+                              "end": { "dateTime": "2026-04-07T20:00:00+09:00" }
+                            }
+                          ]
+                        }
+                        """, MediaType.APPLICATION_JSON));
+
+        List<CalendarEvent> events = googleCalendarClient.fetchUpcomingEvents(
+                googleIntegration(),
+                LocalDateTime.of(2026, 4, 7, 9, 0),
+                3
+        );
+
+        assertThat(events).hasSize(1);
+        assertThat(events.getFirst().rawLocation()).isEqualTo("판교");
+        server.verify();
+    }
+
+    @Test
+    void location_필드가_없고_title이_장소처럼_보이면_title을_rawLocation_후보로_사용한다() {
+        server.expect(requestTo(startsWith("https://www.googleapis.test/calendar/v3/calendars/primary/events")))
+                .andRespond(withSuccess("""
+                        {
+                          "items": [
+                            {
+                              "id": "event-1",
+                              "status": "confirmed",
+                              "summary": "강남 목구멍",
+                              "start": { "dateTime": "2026-04-07T18:00:00+09:00" },
+                              "end": { "dateTime": "2026-04-07T20:00:00+09:00" }
+                            }
+                          ]
+                        }
+                        """, MediaType.APPLICATION_JSON));
+
+        List<CalendarEvent> events = googleCalendarClient.fetchUpcomingEvents(
+                googleIntegration(),
+                LocalDateTime.of(2026, 4, 7, 9, 0),
+                3
+        );
+
+        assertThat(events).hasSize(1);
+        assertThat(events.getFirst().rawLocation()).isEqualTo("강남 목구멍");
+        server.verify();
+    }
+
+    @Test
+    void location_필드가_없고_title이_일반적인_제목이면_rawLocation으로_사용하지_않는다() {
+        server.expect(requestTo(startsWith("https://www.googleapis.test/calendar/v3/calendars/primary/events")))
+                .andRespond(withSuccess("""
+                        {
+                          "items": [
+                            {
+                              "id": "event-1",
+                              "status": "confirmed",
+                              "summary": "저녁 약속",
+                              "start": { "dateTime": "2026-04-07T18:00:00+09:00" },
+                              "end": { "dateTime": "2026-04-07T20:00:00+09:00" }
+                            }
+                          ]
+                        }
+                        """, MediaType.APPLICATION_JSON));
+
+        List<CalendarEvent> events = googleCalendarClient.fetchUpcomingEvents(
+                googleIntegration(),
+                LocalDateTime.of(2026, 4, 7, 9, 0),
+                3
+        );
+
+        assertThat(events).hasSize(1);
+        assertThat(events.getFirst().rawLocation()).isNull();
+        server.verify();
+    }
+
+    @Test
     void 취소된_일정과_시작시각이_없는_일정은_제외한다() {
         server.expect(requestTo(startsWith("https://www.googleapis.test/calendar/v3/calendars/primary/events")))
                 .andRespond(withSuccess("""
