@@ -55,6 +55,7 @@
 
 - "강남 회식" → "서울특별시 강남구"
 - rule → Google Places → AI fallback 구조
+- Google Calendar location을 우선 사용하고, 비어 있으면 장소성 있는 title을 보조 후보로 사용
 
 ---
 
