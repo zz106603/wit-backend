@@ -325,6 +325,34 @@ class HttpGoogleCalendarClientTest {
     }
 
     @Test
+    void 고정힌트에_없어도_장소형태_title이면_rawLocation_후보로_사용한다() {
+        server.expect(requestTo(startsWith("https://www.googleapis.test/calendar/v3/calendars/primary/events")))
+                .andRespond(withSuccess("""
+                        {
+                          "items": [
+                            {
+                              "id": "event-1",
+                              "status": "confirmed",
+                              "summary": "연남동 카페거리",
+                              "start": { "dateTime": "2026-04-07T18:00:00+09:00" },
+                              "end": { "dateTime": "2026-04-07T20:00:00+09:00" }
+                            }
+                          ]
+                        }
+                        """, MediaType.APPLICATION_JSON));
+
+        List<CalendarEvent> events = googleCalendarClient.fetchUpcomingEvents(
+                googleIntegration(),
+                LocalDateTime.of(2026, 4, 7, 9, 0),
+                3
+        );
+
+        assertThat(events).hasSize(1);
+        assertThat(events.getFirst().rawLocation()).isEqualTo("연남동 카페거리");
+        server.verify();
+    }
+
+    @Test
     void 취소된_일정과_시작시각이_없는_일정은_제외한다() {
         server.expect(requestTo(startsWith("https://www.googleapis.test/calendar/v3/calendars/primary/events")))
                 .andRespond(withSuccess("""

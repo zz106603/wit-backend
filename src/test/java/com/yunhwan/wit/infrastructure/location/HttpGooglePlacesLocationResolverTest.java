@@ -113,7 +113,7 @@ class HttpGooglePlacesLocationResolverTest {
 
         ResolvedLocation result = resolver.resolve("강남 19시");
 
-        assertThat(result.status()).isEqualTo(LocationResolutionStatus.RESOLVED);
+        assertThat(result.status()).isEqualTo(LocationResolutionStatus.APPROXIMATED);
         assertThat(result.resolvedBy()).isEqualTo(LocationResolvedBy.GOOGLE_PLACES);
         server.verify();
     }
@@ -246,18 +246,18 @@ class HttpGooglePlacesLocationResolverTest {
     }
 
     @Test
-    void 시간표현이_섞여도_지역단서가_남으면_places_결과를_approximated로_반환한다() {
+    void 시간표현이_달라도_같은_지역query면_같은_근사결과를_반환한다() {
         server.expect(requestTo("https://places.test/v1/places:searchText"))
                 .andRespond(withSuccess("""
                         {
                           "places": [
                             {
                               "id": "places/abc",
-                              "displayName": { "text": "강남역" },
-                              "formattedAddress": "서울특별시 강남구 테헤란로 1",
+                              "displayName": { "text": "강남" },
+                              "formattedAddress": "서울특별시 강남구",
                               "location": {
-                                "latitude": 37.5001,
-                                "longitude": 127.0362
+                                "latitude": 37.5172,
+                                "longitude": 127.0473
                               }
                             }
                           ]
@@ -268,7 +268,7 @@ class HttpGooglePlacesLocationResolverTest {
 
         assertThat(result.status()).isEqualTo(LocationResolutionStatus.APPROXIMATED);
         assertThat(result.resolvedBy()).isEqualTo(LocationResolvedBy.GOOGLE_PLACES);
-        assertThat(result.confidence()).isEqualTo(0.65);
+        assertThat(result.normalizedQuery()).isEqualTo("강남");
         server.verify();
     }
 
@@ -302,7 +302,7 @@ class HttpGooglePlacesLocationResolverTest {
     }
 
     @Test
-    void business_token이_빠진_display_name만으로는_강남_목구멍을_통과시키지_않는다() {
+    void display_name의_부분일치만으로도_강남_목구멍은_approximated가_될수있다() {
         server.expect(requestTo("https://places.test/v1/places:searchText"))
                 .andRespond(withSuccess("""
                         {
@@ -322,8 +322,8 @@ class HttpGooglePlacesLocationResolverTest {
 
         ResolvedLocation result = resolver.resolve("강남 목구멍");
 
-        assertThat(result.status()).isEqualTo(LocationResolutionStatus.FAILED);
-        assertThat(result.resolvedBy()).isNull();
+        assertThat(result.status()).isEqualTo(LocationResolutionStatus.APPROXIMATED);
+        assertThat(result.resolvedBy()).isEqualTo(LocationResolvedBy.GOOGLE_PLACES);
         server.verify();
     }
 
