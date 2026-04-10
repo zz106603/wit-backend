@@ -300,8 +300,7 @@ public class HttpGooglePlacesLocationResolver implements GooglePlacesLocationRes
     }
 
     private boolean isTimeToken(String token) {
-        return token.matches("\\d+")
-                || token.matches("\\d+시")
+        return token.matches("\\d+시")
                 || token.matches("\\d+시\\d+분")
                 || token.matches("\\d+분");
     }
