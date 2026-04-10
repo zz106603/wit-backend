@@ -78,6 +78,50 @@ class DefaultLocationResolverTest {
     }
 
     @Test
+    void rule이_저신뢰도이면_google_places를_먼저_호출한다() {
+        RuleBasedLocationResolver lowConfidenceRuleResolver = new RuleBasedLocationResolver() {
+            @Override
+            public ResolvedLocation resolve(String rawLocation) {
+                return ResolvedLocation.approximated(
+                        rawLocation,
+                        "강남",
+                        "서울특별시 강남구",
+                        37.5172,
+                        127.0473,
+                        0.6,
+                        LocationResolvedBy.RULE
+                );
+            }
+        };
+        CountingGooglePlacesLocationResolver googlePlacesResolver = new CountingGooglePlacesLocationResolver(
+                ResolvedLocation.resolved(
+                        "강남 회식",
+                        "강남 목구멍",
+                        "서울특별시 강남구 역삼동",
+                        37.5001,
+                        127.0362,
+                        0.85,
+                        LocationResolvedBy.GOOGLE_PLACES
+                )
+        );
+        CountingAiLocationFallbackResolver aiFallbackResolver = new CountingAiLocationFallbackResolver(
+                ResolvedLocation.failed("강남 회식")
+        );
+        DefaultLocationResolver resolver = new DefaultLocationResolver(
+                lowConfidenceRuleResolver,
+                googlePlacesResolver,
+                aiFallbackResolver
+        );
+
+        ResolvedLocation result = resolver.resolve("강남 회식");
+
+        assertThat(result.resolvedBy()).isEqualTo(LocationResolvedBy.GOOGLE_PLACES);
+        assertThat(result.status()).isEqualTo(LocationResolutionStatus.RESOLVED);
+        assertThat(googlePlacesResolver.invocationCount()).isEqualTo(1);
+        assertThat(aiFallbackResolver.invocationCount()).isZero();
+    }
+
+    @Test
     void google_places가_실패하면_ai_fallback_결과를_반환한다() {
         CountingGooglePlacesLocationResolver googlePlacesResolver = new CountingGooglePlacesLocationResolver(
                 ResolvedLocation.failed("알수없는장소")
@@ -114,7 +158,97 @@ class DefaultLocationResolverTest {
     }
 
     @Test
+    void google_places가_근사해결이면_ai_fallback까지_진행한다() {
+        CountingGooglePlacesLocationResolver googlePlacesResolver = new CountingGooglePlacesLocationResolver(
+                ResolvedLocation.approximated(
+                        "알수없는장소",
+                        "판교역 인근",
+                        "경기도 성남시 분당구 판교역로",
+                        37.3947,
+                        127.1112,
+                        0.7,
+                        LocationResolvedBy.GOOGLE_PLACES
+                )
+        );
+        CountingAiLocationFallbackResolver aiFallbackResolver = new CountingAiLocationFallbackResolver(
+                ResolvedLocation.approximated(
+                        "알수없는장소",
+                        "판교",
+                        "경기도 성남시 분당구 판교동",
+                        37.3947,
+                        127.1112,
+                        0.75,
+                        LocationResolvedBy.AI
+                )
+        );
+        DefaultLocationResolver resolver = new DefaultLocationResolver(
+                ruleBasedLocationResolver,
+                googlePlacesResolver,
+                aiFallbackResolver
+        );
+
+        ResolvedLocation result = resolver.resolve("알수없는장소");
+
+        assertThat(result.resolvedBy()).isEqualTo(LocationResolvedBy.AI);
+        assertThat(result.status()).isEqualTo(LocationResolutionStatus.APPROXIMATED);
+        assertThat(googlePlacesResolver.invocationCount()).isEqualTo(1);
+        assertThat(aiFallbackResolver.invocationCount()).isEqualTo(1);
+    }
+
+    @Test
+    void google_places가_resolved여도_저신뢰도이면_ai_fallback까지_진행한다() {
+        CountingGooglePlacesLocationResolver googlePlacesResolver = new CountingGooglePlacesLocationResolver(
+                ResolvedLocation.resolved(
+                        "강남 회식",
+                        "강남 목구멍",
+                        "서울특별시 강남구 역삼동",
+                        37.5001,
+                        127.0362,
+                        0.6,
+                        LocationResolvedBy.GOOGLE_PLACES
+                )
+        );
+        CountingAiLocationFallbackResolver aiFallbackResolver = new CountingAiLocationFallbackResolver(
+                ResolvedLocation.resolved(
+                        "강남 회식",
+                        "강남",
+                        "서울특별시 강남구",
+                        37.5172,
+                        127.0473,
+                        0.82,
+                        LocationResolvedBy.AI
+                )
+        );
+        DefaultLocationResolver resolver = new DefaultLocationResolver(
+                ruleBasedLocationResolver,
+                googlePlacesResolver,
+                aiFallbackResolver
+        );
+
+        ResolvedLocation result = resolver.resolve("강남 회식");
+
+        assertThat(result.resolvedBy()).isEqualTo(LocationResolvedBy.AI);
+        assertThat(result.status()).isEqualTo(LocationResolutionStatus.RESOLVED);
+        assertThat(googlePlacesResolver.invocationCount()).isEqualTo(1);
+        assertThat(aiFallbackResolver.invocationCount()).isEqualTo(1);
+    }
+
+    @Test
     void google_places와_ai가_실패하면_느슨한_rule_근사결과를_사용하지_않는다() {
+        RuleBasedLocationResolver lowConfidenceRuleResolver = new RuleBasedLocationResolver() {
+            @Override
+            public ResolvedLocation resolve(String rawLocation) {
+                return ResolvedLocation.approximated(
+                        rawLocation,
+                        "강남",
+                        "서울특별시 강남구",
+                        37.5172,
+                        127.0473,
+                        0.6,
+                        LocationResolvedBy.RULE
+                );
+            }
+        };
         CountingGooglePlacesLocationResolver googlePlacesResolver = new CountingGooglePlacesLocationResolver(
                 ResolvedLocation.failed("강남 회식")
         );
@@ -122,7 +256,7 @@ class DefaultLocationResolverTest {
                 ResolvedLocation.failed("강남 회식")
         );
         DefaultLocationResolver resolver = new DefaultLocationResolver(
-                ruleBasedLocationResolver,
+                lowConfidenceRuleResolver,
                 googlePlacesResolver,
                 aiFallbackResolver
         );

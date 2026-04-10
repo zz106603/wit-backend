@@ -10,6 +10,7 @@ import org.slf4j.LoggerFactory;
 public class DefaultLocationResolver implements LocationResolver {
 
     private static final Logger log = LoggerFactory.getLogger(DefaultLocationResolver.class);
+    private static final double SUFFICIENT_CONFIDENCE_THRESHOLD = 0.8;
 
     private final RuleBasedLocationResolver ruleBasedLocationResolver;
     private final GooglePlacesLocationResolver googlePlacesLocationResolver;
@@ -45,16 +46,6 @@ public class DefaultLocationResolver implements LocationResolver {
                 ruleResult.displayLocation()
         );
 
-        if (ruleResult.status() == LocationResolutionStatus.RESOLVED) {
-            log.info(
-                    "[RecommendationDebug] location final chosen. rawLocation={}, source=RULE, status={}, displayLocation={}",
-                    rawLocation,
-                    ruleResult.status(),
-                    ruleResult.displayLocation()
-            );
-            return ruleResult;
-        }
-
         if (isMeaninglessInput(rawLocation)) {
             log.info(
                     "[RecommendationDebug] location final chosen. rawLocation={}, source=FALLBACK, status={}, reason=meaningless",
@@ -64,8 +55,18 @@ public class DefaultLocationResolver implements LocationResolver {
             return ruleResult;
         }
 
+        if (isSufficientResolution(ruleResult, rawLocation, LocationResolvedBy.RULE)) {
+            log.info(
+                    "[RecommendationDebug] location final chosen. rawLocation={}, source=RULE, status={}, displayLocation={}",
+                    rawLocation,
+                    ruleResult.status(),
+                    ruleResult.displayLocation()
+            );
+            return ruleResult;
+        }
+
         ResolvedLocation googlePlacesResult = resolveByGooglePlaces(rawLocation);
-        if (isSuccessfulGooglePlacesResult(googlePlacesResult, rawLocation)) {
+        if (isSufficientResolution(googlePlacesResult, rawLocation, LocationResolvedBy.GOOGLE_PLACES)) {
             log.info(
                     "[RecommendationDebug] location final chosen. rawLocation={}, source=GOOGLE_PLACES, status={}, displayLocation={}",
                     rawLocation,
@@ -98,7 +99,7 @@ public class DefaultLocationResolver implements LocationResolver {
                 rawLocation,
                 ruleResult.status()
         );
-        return ruleResult;
+        return ResolvedLocation.failed(rawLocation);
     }
 
     private ResolvedLocation resolveByGooglePlaces(String rawLocation) {
@@ -118,20 +119,28 @@ public class DefaultLocationResolver implements LocationResolver {
         }
     }
 
-    private boolean isSuccessfulGooglePlacesResult(ResolvedLocation googlePlacesResult, String rawLocation) {
-        if (googlePlacesResult == null) {
+    private boolean isSufficientResolution(
+            ResolvedLocation result,
+            String rawLocation,
+            LocationResolvedBy expectedResolvedBy
+    ) {
+        if (result == null) {
             return false;
         }
 
-        if (googlePlacesResult.status() == LocationResolutionStatus.FAILED) {
+        if (result.status() != LocationResolutionStatus.RESOLVED) {
             return false;
         }
 
-        if (googlePlacesResult.resolvedBy() != LocationResolvedBy.GOOGLE_PLACES) {
+        if (result.resolvedBy() != expectedResolvedBy) {
             return false;
         }
 
-        return Objects.equals(googlePlacesResult.rawLocation(), rawLocation);
+        if (!Objects.equals(result.rawLocation(), rawLocation)) {
+            return false;
+        }
+
+        return result.confidence() != null && result.confidence() >= SUFFICIENT_CONFIDENCE_THRESHOLD;
     }
 
     private boolean isSuccessfulAiResult(ResolvedLocation aiResult, String rawLocation) {
