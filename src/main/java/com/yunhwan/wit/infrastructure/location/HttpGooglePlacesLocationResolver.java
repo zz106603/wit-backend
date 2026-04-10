@@ -52,10 +52,21 @@ public class HttpGooglePlacesLocationResolver implements GooglePlacesLocationRes
             return ResolvedLocation.failed(rawLocation);
         }
 
+        String placesQuery = normalizePlacesQuery(rawLocation);
+        if (!StringUtils.hasText(placesQuery)) {
+            log.info(
+                    "[RecommendationDebug] Google Places short-circuit after normalization. rawLocation={}, normalizedQuery={}",
+                    rawLocation,
+                    placesQuery
+            );
+            return ResolvedLocation.failed(rawLocation);
+        }
+
         try {
             log.info(
-                    "[RecommendationDebug] Google Places request before. rawLocation={}, path={}, fieldMask={}",
+                    "[RecommendationDebug] Google Places request before. rawLocation={}, normalizedQuery={}, path={}, fieldMask={}",
                     rawLocation,
+                    placesQuery,
                     properties.textSearchPath(),
                     properties.fieldMask()
             );
@@ -64,7 +75,7 @@ public class HttpGooglePlacesLocationResolver implements GooglePlacesLocationRes
                     .header("X-Goog-Api-Key", properties.apiKey())
                     .header("X-Goog-FieldMask", properties.fieldMask())
                     .body(new GooglePlacesTextSearchRequest(
-                            rawLocation,
+                            placesQuery,
                             properties.languageCode(),
                             properties.regionCode(),
                             properties.pageSize()
@@ -210,6 +221,7 @@ public class HttpGooglePlacesLocationResolver implements GooglePlacesLocationRes
 
         boolean hasMeaningfulPartialMatch = directMatch
                 || alignment.alignedTokenCount() >= 2
+                || (alignment.nameAligned() && alignment.informativeTokenCount() == 1)
                 || (alignment.addressAligned() && alignment.informativeTokenCount() == 1)
                 || (alignment.addressAligned() && alignment.informativeTokenCount() >= 2);
 
@@ -271,6 +283,14 @@ public class HttpGooglePlacesLocationResolver implements GooglePlacesLocationRes
                 .filter(token -> token.length() >= 2)
                 .filter(token -> !isGenericContextToken(token))
                 .toList();
+    }
+
+    private String normalizePlacesQuery(String rawLocation) {
+        List<String> tokens = informativeTokens(rawLocation);
+        if (tokens.isEmpty()) {
+            return "";
+        }
+        return String.join(" ", tokens);
     }
 
     private boolean isGenericContextToken(String token) {
