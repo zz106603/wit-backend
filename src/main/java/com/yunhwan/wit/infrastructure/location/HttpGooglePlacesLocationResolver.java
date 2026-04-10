@@ -2,8 +2,13 @@ package com.yunhwan.wit.infrastructure.location;
 
 import com.yunhwan.wit.application.location.GooglePlacesLocationResolver;
 import com.yunhwan.wit.domain.model.LocationResolvedBy;
+import com.yunhwan.wit.domain.model.LocationResolutionStatus;
 import com.yunhwan.wit.domain.model.ResolvedLocation;
+import java.util.Arrays;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.util.StringUtils;
@@ -14,7 +19,13 @@ import org.springframework.web.client.RestClientResponseException;
 public class HttpGooglePlacesLocationResolver implements GooglePlacesLocationResolver {
 
     private static final Logger log = LoggerFactory.getLogger(HttpGooglePlacesLocationResolver.class);
-    private static final double GOOGLE_PLACES_CONFIDENCE = 0.85;
+    private static final double GOOGLE_PLACES_RESOLVED_CONFIDENCE = 0.85;
+    private static final double GOOGLE_PLACES_APPROXIMATED_CONFIDENCE = 0.65;
+    private static final Set<String> GENERIC_CONTEXT_TOKENS = Set.of(
+            "회사", "회식", "미팅", "약속", "점심", "저녁", "아침", "모임", "식사", "방문", "일정",
+            "행사", "출근", "퇴근", "맛집", "식당", "카페", "술집", "음식점", "근처", "인근",
+            "오전", "오후"
+    );
 
     private final RestClient googlePlacesRestClient;
     private final GooglePlacesProperties properties;
@@ -66,7 +77,7 @@ public class HttpGooglePlacesLocationResolver implements GooglePlacesLocationRes
                     itemCount(response)
             );
 
-            return mapFirstPlace(rawLocation, response);
+            return mapBestPlace(rawLocation, response);
         } catch (RestClientResponseException exception) {
             throw new GooglePlacesInfrastructureException("Google Places request failed", exception);
         } catch (RestClientException exception) {
@@ -81,12 +92,30 @@ public class HttpGooglePlacesLocationResolver implements GooglePlacesLocationRes
         return response.places().size();
     }
 
-    private ResolvedLocation mapFirstPlace(String rawLocation, GooglePlacesTextSearchResponse response) {
+    private ResolvedLocation mapBestPlace(String rawLocation, GooglePlacesTextSearchResponse response) {
         if (response == null || response.places() == null || response.places().isEmpty()) {
             return ResolvedLocation.failed(rawLocation);
         }
 
-        GooglePlacesTextSearchResponse.GooglePlace place = response.places().getFirst();
+        ResolvedLocation bestApproximated = null;
+        for (GooglePlacesTextSearchResponse.GooglePlace place : response.places()) {
+            ResolvedLocation candidate = mapPlace(rawLocation, place);
+            if (candidate.status() == LocationResolutionStatus.RESOLVED) {
+                return candidate;
+            }
+            if (candidate.status() == LocationResolutionStatus.APPROXIMATED && bestApproximated == null) {
+                bestApproximated = candidate;
+            }
+        }
+
+        if (bestApproximated != null) {
+            return bestApproximated;
+        }
+
+        return ResolvedLocation.failed(rawLocation);
+    }
+
+    private ResolvedLocation mapPlace(String rawLocation, GooglePlacesTextSearchResponse.GooglePlace place) {
         if (place.location() == null || place.location().latitude() == null || place.location().longitude() == null) {
             return ResolvedLocation.failed(rawLocation);
         }
@@ -99,22 +128,44 @@ public class HttpGooglePlacesLocationResolver implements GooglePlacesLocationRes
         String displayLocation = StringUtils.hasText(place.formattedAddress())
                 ? place.formattedAddress()
                 : displayName;
+        LocationResolutionStatus status = evaluateStatus(rawLocation, place, displayName);
+        double confidence = status == LocationResolutionStatus.RESOLVED
+                ? GOOGLE_PLACES_RESOLVED_CONFIDENCE
+                : GOOGLE_PLACES_APPROXIMATED_CONFIDENCE;
         log.info(
-                "[RecommendationDebug] Google Places response mapped. rawLocation={}, displayName={}, displayLocation={}, lat={}, lng={}",
-                rawLocation,
-                displayName,
-                displayLocation,
-                place.location().latitude(),
-                place.location().longitude()
-        );
-
-        return ResolvedLocation.resolved(
+                "[RecommendationDebug] Google Places response mapped. rawLocation={}, displayName={}, displayLocation={}, lat={}, lng={}, status={}, confidence={}",
                 rawLocation,
                 displayName,
                 displayLocation,
                 place.location().latitude(),
                 place.location().longitude(),
-                GOOGLE_PLACES_CONFIDENCE,
+                status,
+                confidence
+        );
+
+        if (status == LocationResolutionStatus.RESOLVED) {
+            return ResolvedLocation.resolved(
+                    rawLocation,
+                    displayName,
+                    displayLocation,
+                    place.location().latitude(),
+                    place.location().longitude(),
+                    confidence,
+                    LocationResolvedBy.GOOGLE_PLACES
+            );
+        }
+
+        if (status == LocationResolutionStatus.FAILED) {
+            return ResolvedLocation.failed(rawLocation);
+        }
+
+        return ResolvedLocation.approximated(
+                rawLocation,
+                displayName,
+                displayLocation,
+                place.location().latitude(),
+                place.location().longitude(),
+                confidence,
                 LocationResolvedBy.GOOGLE_PLACES
         );
     }
@@ -125,5 +176,118 @@ public class HttpGooglePlacesLocationResolver implements GooglePlacesLocationRes
         }
 
         return place.displayName().text();
+    }
+
+    private LocationResolutionStatus evaluateStatus(
+            String rawLocation,
+            GooglePlacesTextSearchResponse.GooglePlace place,
+            String displayName
+    ) {
+        String normalizedRawLocation = normalize(rawLocation);
+        String normalizedDisplayName = normalize(displayName);
+        String normalizedFormattedAddress = normalize(place.formattedAddress());
+
+        if (!StringUtils.hasText(normalizedRawLocation)) {
+            return LocationResolutionStatus.FAILED;
+        }
+
+        List<String> informativeTokens = informativeTokens(rawLocation);
+        if (informativeTokens.isEmpty()) {
+            return LocationResolutionStatus.FAILED;
+        }
+
+        boolean hasFormattedAddress = StringUtils.hasText(place.formattedAddress());
+        boolean hasPlaceId = StringUtils.hasText(place.id());
+        boolean directMatch = isDirectMatch(normalizedRawLocation, normalizedDisplayName, normalizedFormattedAddress);
+        Alignment alignment = evaluateAlignment(informativeTokens, normalizedDisplayName, normalizedFormattedAddress);
+
+        boolean hasStrongTokenAlignment = alignment.nameAligned()
+                && alignment.addressAligned()
+                && alignment.alignedTokenCount() >= 2;
+        if (hasFormattedAddress && (directMatch || hasStrongTokenAlignment)) {
+            return LocationResolutionStatus.RESOLVED;
+        }
+
+        boolean hasMeaningfulPartialMatch = directMatch
+                || alignment.alignedTokenCount() >= 2
+                || (alignment.addressAligned() && alignment.informativeTokenCount() >= 2);
+
+        if ((hasFormattedAddress || hasPlaceId) && hasMeaningfulPartialMatch) {
+            return LocationResolutionStatus.APPROXIMATED;
+        }
+
+        return LocationResolutionStatus.FAILED;
+    }
+
+    private boolean isDirectMatch(String normalizedRawLocation, String normalizedDisplayName, String normalizedFormattedAddress) {
+        return containsEitherWay(normalizedRawLocation, normalizedDisplayName)
+                || containsEitherWay(normalizedRawLocation, normalizedFormattedAddress);
+    }
+
+    private Alignment evaluateAlignment(
+            List<String> informativeTokens,
+            String normalizedDisplayName,
+            String normalizedFormattedAddress
+    ) {
+        Set<String> alignedTokens = new LinkedHashSet<>();
+        boolean nameAligned = false;
+        boolean addressAligned = false;
+
+        for (String token : informativeTokens) {
+            if (normalizedDisplayName.contains(token)) {
+                alignedTokens.add(token);
+                nameAligned = true;
+            }
+            if (normalizedFormattedAddress.contains(token)) {
+                alignedTokens.add(token);
+                addressAligned = true;
+            }
+        }
+
+        return new Alignment(nameAligned, addressAligned, alignedTokens.size(), informativeTokens.size());
+    }
+
+    private boolean containsEitherWay(String source, String target) {
+        if (!StringUtils.hasText(source) || !StringUtils.hasText(target)) {
+            return false;
+        }
+
+        return source.contains(target) || target.contains(source);
+    }
+
+    private String normalize(String value) {
+        if (!StringUtils.hasText(value)) {
+            return "";
+        }
+
+        return value.replaceAll("[^0-9a-zA-Z가-힣]", "").toLowerCase();
+    }
+
+    private List<String> informativeTokens(String rawLocation) {
+        return Arrays.stream(rawLocation.split("\\s+"))
+                .map(this::normalize)
+                .filter(StringUtils::hasText)
+                .filter(token -> token.length() >= 2)
+                .filter(token -> !isGenericContextToken(token))
+                .toList();
+    }
+
+    private boolean isGenericContextToken(String token) {
+        return GENERIC_CONTEXT_TOKENS.contains(token) || isTimeToken(token);
+    }
+
+    private boolean isTimeToken(String token) {
+        return token.matches("\\d+")
+                || token.matches("\\d+시")
+                || token.matches("\\d+시\\d+분")
+                || token.matches("\\d+분");
+    }
+
+    private record Alignment(
+            boolean nameAligned,
+            boolean addressAligned,
+            int alignedTokenCount,
+            int informativeTokenCount
+    ) {
     }
 }
