@@ -212,7 +212,7 @@ public class HttpGoogleCalendarClient implements GoogleCalendarClient {
     }
 
     private String locationCandidate(String location, String summary) {
-        if (StringUtils.hasText(location)) {
+        if (isUsableRawLocation(location)) {
             return location;
         }
 
@@ -221,6 +221,15 @@ public class HttpGoogleCalendarClient implements GoogleCalendarClient {
         }
 
         return null;
+    }
+
+    private boolean isUsableRawLocation(String location) {
+        if (!StringUtils.hasText(location)) {
+            return false;
+        }
+
+        String normalizedLocation = location.replaceAll("[^0-9a-zA-Z가-힣]", "");
+        return StringUtils.hasText(normalizedLocation);
     }
 
     private boolean isPlaceLikeSummary(String summary) {
