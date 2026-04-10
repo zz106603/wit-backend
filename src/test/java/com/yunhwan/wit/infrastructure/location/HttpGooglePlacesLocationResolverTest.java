@@ -229,7 +229,7 @@ class HttpGooglePlacesLocationResolverTest {
     }
 
     @Test
-    void 시간표현이_섞인_지역입력은_places_결과가_있어도_failed를_반환한다() {
+    void 시간표현이_섞여도_지역단서가_남으면_places_결과를_approximated로_반환한다() {
         server.expect(requestTo("https://places.test/v1/places:searchText"))
                 .andRespond(withSuccess("""
                         {
@@ -249,8 +249,9 @@ class HttpGooglePlacesLocationResolverTest {
 
         ResolvedLocation result = resolver.resolve("강남 7시");
 
-        assertThat(result.status()).isEqualTo(LocationResolutionStatus.FAILED);
-        assertThat(result.resolvedBy()).isNull();
+        assertThat(result.status()).isEqualTo(LocationResolutionStatus.APPROXIMATED);
+        assertThat(result.resolvedBy()).isEqualTo(LocationResolvedBy.GOOGLE_PLACES);
+        assertThat(result.confidence()).isEqualTo(0.65);
         server.verify();
     }
 

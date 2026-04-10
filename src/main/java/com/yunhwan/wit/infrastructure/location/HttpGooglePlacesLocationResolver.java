@@ -210,6 +210,7 @@ public class HttpGooglePlacesLocationResolver implements GooglePlacesLocationRes
 
         boolean hasMeaningfulPartialMatch = directMatch
                 || alignment.alignedTokenCount() >= 2
+                || (alignment.addressAligned() && alignment.informativeTokenCount() == 1)
                 || (alignment.addressAligned() && alignment.informativeTokenCount() >= 2);
 
         if ((hasFormattedAddress || hasPlaceId) && hasMeaningfulPartialMatch) {
