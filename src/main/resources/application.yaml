@@ -33,6 +33,14 @@ wit:
       time-zone: ${OPEN_METEO_TIME_ZONE:Asia/Seoul}
       current-fields: ${OPEN_METEO_CURRENT_FIELDS:temperature_2m,apparent_temperature,precipitation,rain,weather_code}
       hourly-fields: ${OPEN_METEO_HOURLY_FIELDS:temperature_2m,apparent_temperature,precipitation_probability,precipitation,rain,weather_code}
+  ai:
+    gemini:
+      api-key: ${GEMINI_API_KEY:}
+      base-url: ${GEMINI_BASE_URL:https://generativelanguage.googleapis.com}
+      model: ${GEMINI_MODEL:}
+      generate-content-path: ${GEMINI_GENERATE_CONTENT_PATH:/v1beta/models/{model}:generateContent}
+      connect-timeout: ${GEMINI_CONNECT_TIMEOUT:3s}
+      read-timeout: ${GEMINI_READ_TIMEOUT:10s}
   recommendation:
     cache:
       ttl: ${RECOMMENDATION_CACHE_TTL:30m}
