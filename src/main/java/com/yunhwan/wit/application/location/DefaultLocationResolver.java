@@ -66,7 +66,7 @@ public class DefaultLocationResolver implements LocationResolver {
         }
 
         ResolvedLocation googlePlacesResult = resolveByGooglePlaces(rawLocation);
-        if (isSufficientResolution(googlePlacesResult, rawLocation, LocationResolvedBy.GOOGLE_PLACES)) {
+        if (isAcceptedGooglePlacesResolution(googlePlacesResult, rawLocation)) {
             log.info(
                     "[RecommendationDebug] location final chosen. rawLocation={}, source=GOOGLE_PLACES, status={}, displayLocation={}",
                     rawLocation,
@@ -141,6 +141,26 @@ public class DefaultLocationResolver implements LocationResolver {
         }
 
         return result.confidence() != null && result.confidence() >= SUFFICIENT_CONFIDENCE_THRESHOLD;
+    }
+
+    private boolean isAcceptedGooglePlacesResolution(ResolvedLocation result, String rawLocation) {
+        if (result == null) {
+            return false;
+        }
+
+        if (result.resolvedBy() != LocationResolvedBy.GOOGLE_PLACES) {
+            return false;
+        }
+
+        if (!Objects.equals(result.rawLocation(), rawLocation)) {
+            return false;
+        }
+
+        if (result.status() == LocationResolutionStatus.RESOLVED) {
+            return result.confidence() != null && result.confidence() >= SUFFICIENT_CONFIDENCE_THRESHOLD;
+        }
+
+        return result.status() == LocationResolutionStatus.APPROXIMATED && result.confidence() != null;
     }
 
     private boolean isSuccessfulAiResult(ResolvedLocation aiResult, String rawLocation) {
