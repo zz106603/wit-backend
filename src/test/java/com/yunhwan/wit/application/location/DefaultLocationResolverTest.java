@@ -158,25 +158,25 @@ class DefaultLocationResolverTest {
     }
 
     @Test
-    void google_places가_근사해결이면_ai_fallback까지_진행한다() {
+    void google_places가_근사해결이면_의미있는_중간결과로_채택한다() {
         CountingGooglePlacesLocationResolver googlePlacesResolver = new CountingGooglePlacesLocationResolver(
                 ResolvedLocation.approximated(
-                        "알수없는장소",
-                        "판교역 인근",
-                        "경기도 성남시 분당구 판교역로",
-                        37.3947,
-                        127.1112,
-                        0.7,
+                        "강남 19시",
+                        "강남역",
+                        "서울특별시 강남구 테헤란로 1",
+                        37.5001,
+                        127.0362,
+                        0.65,
                         LocationResolvedBy.GOOGLE_PLACES
                 )
         );
         CountingAiLocationFallbackResolver aiFallbackResolver = new CountingAiLocationFallbackResolver(
                 ResolvedLocation.approximated(
-                        "알수없는장소",
-                        "판교",
-                        "경기도 성남시 분당구 판교동",
-                        37.3947,
-                        127.1112,
+                        "강남 19시",
+                        "강남",
+                        "서울특별시 강남구",
+                        37.5172,
+                        127.0473,
                         0.75,
                         LocationResolvedBy.AI
                 )
@@ -187,12 +187,13 @@ class DefaultLocationResolverTest {
                 aiFallbackResolver
         );
 
-        ResolvedLocation result = resolver.resolve("알수없는장소");
+        ResolvedLocation result = resolver.resolve("강남 19시");
 
-        assertThat(result.resolvedBy()).isEqualTo(LocationResolvedBy.AI);
+        assertThat(result.resolvedBy()).isEqualTo(LocationResolvedBy.GOOGLE_PLACES);
         assertThat(result.status()).isEqualTo(LocationResolutionStatus.APPROXIMATED);
+        assertThat(result.displayLocation()).isEqualTo("서울특별시 강남구 테헤란로 1");
         assertThat(googlePlacesResolver.invocationCount()).isEqualTo(1);
-        assertThat(aiFallbackResolver.invocationCount()).isEqualTo(1);
+        assertThat(aiFallbackResolver.invocationCount()).isZero();
     }
 
     @Test
@@ -367,6 +368,50 @@ class DefaultLocationResolverTest {
         assertThat(result.lat()).isNull();
         assertThat(result.lng()).isNull();
         assertThat(result.confidence()).isNull();
+        assertThat(googlePlacesResolver.invocationCount()).isEqualTo(1);
+        assertThat(aiFallbackResolver.invocationCount()).isEqualTo(1);
+    }
+
+    @Test
+    void 회사_회식처럼_장소성이_약한_입력은_google_places가_failed면_계속_failed다() {
+        CountingGooglePlacesLocationResolver googlePlacesResolver = new CountingGooglePlacesLocationResolver(
+                ResolvedLocation.failed("회사 회식")
+        );
+        CountingAiLocationFallbackResolver aiFallbackResolver = new CountingAiLocationFallbackResolver(
+                ResolvedLocation.failed("회사 회식")
+        );
+        DefaultLocationResolver resolver = new DefaultLocationResolver(
+                ruleBasedLocationResolver,
+                googlePlacesResolver,
+                aiFallbackResolver
+        );
+
+        ResolvedLocation result = resolver.resolve("회사 회식");
+
+        assertThat(result.status()).isEqualTo(LocationResolutionStatus.FAILED);
+        assertThat(result.resolvedBy()).isNull();
+        assertThat(googlePlacesResolver.invocationCount()).isEqualTo(1);
+        assertThat(aiFallbackResolver.invocationCount()).isEqualTo(1);
+    }
+
+    @Test
+    void 잡음입력은_google_places와_ai가_모두_실패하면_failed다() {
+        CountingGooglePlacesLocationResolver googlePlacesResolver = new CountingGooglePlacesLocationResolver(
+                ResolvedLocation.failed("ㅋㅋ 123")
+        );
+        CountingAiLocationFallbackResolver aiFallbackResolver = new CountingAiLocationFallbackResolver(
+                ResolvedLocation.failed("ㅋㅋ 123")
+        );
+        DefaultLocationResolver resolver = new DefaultLocationResolver(
+                ruleBasedLocationResolver,
+                googlePlacesResolver,
+                aiFallbackResolver
+        );
+
+        ResolvedLocation result = resolver.resolve("ㅋㅋ 123");
+
+        assertThat(result.status()).isEqualTo(LocationResolutionStatus.FAILED);
+        assertThat(result.resolvedBy()).isNull();
         assertThat(googlePlacesResolver.invocationCount()).isEqualTo(1);
         assertThat(aiFallbackResolver.invocationCount()).isEqualTo(1);
     }
