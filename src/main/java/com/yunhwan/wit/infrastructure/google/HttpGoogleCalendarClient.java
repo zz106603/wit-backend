@@ -68,6 +68,9 @@ public class HttpGoogleCalendarClient implements GoogleCalendarClient {
             "서초",
             "마포"
     );
+    private static final Set<String> PLACE_LIKE_TOKEN_SUFFIXES = Set.of(
+            "역", "동", "구", "로", "길", "점"
+    );
 
     private final RestClient googleCalendarRestClient;
     private final GoogleCalendarProperties properties;
@@ -250,7 +253,32 @@ public class HttpGoogleCalendarClient implements GoogleCalendarClient {
             return true;
         }
 
-        return PLACE_LIKE_TITLE_HINTS.stream().anyMatch(normalizedSummary::contains);
+        if (PLACE_LIKE_TITLE_HINTS.stream().anyMatch(normalizedSummary::contains)) {
+            return true;
+        }
+
+        List<String> informativeTokens = tokenizeSummary(summary);
+        if (informativeTokens.isEmpty()) {
+            return false;
+        }
+
+        return informativeTokens.stream().anyMatch(this::isPlaceLikeToken);
+    }
+
+    private List<String> tokenizeSummary(String summary) {
+        return List.of(summary.split("\\s+")).stream()
+                .map(token -> token.replaceAll("[^0-9a-zA-Z가-힣]", ""))
+                .filter(StringUtils::hasText)
+                .filter(token -> !GENERIC_TITLE_LOCATION_EXCLUSIONS.contains(token))
+                .toList();
+    }
+
+    private boolean isPlaceLikeToken(String token) {
+        if (PLACE_LIKE_TITLE_HINTS.contains(token)) {
+            return true;
+        }
+
+        return PLACE_LIKE_TOKEN_SUFFIXES.stream().anyMatch(token::endsWith);
     }
 
     private CalendarEvent toCalendarEventWithDebug(GoogleCalendarEventsResponse.GoogleCalendarEventItem item) {
