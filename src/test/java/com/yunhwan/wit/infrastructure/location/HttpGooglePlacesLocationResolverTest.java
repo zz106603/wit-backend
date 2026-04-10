@@ -85,6 +85,40 @@ class HttpGooglePlacesLocationResolverTest {
     }
 
     @Test
+    void 시간표현을_제거한_query로_places를_호출한다() {
+        server.expect(requestTo("https://places.test/v1/places:searchText"))
+                .andExpect(content().json("""
+                        {
+                          "textQuery": "강남",
+                          "languageCode": "ko",
+                          "regionCode": "KR",
+                          "pageSize": 1
+                        }
+                        """))
+                .andRespond(withSuccess("""
+                        {
+                          "places": [
+                            {
+                              "id": "places/abc",
+                              "displayName": { "text": "강남" },
+                              "formattedAddress": "서울특별시 강남구",
+                              "location": {
+                                "latitude": 37.5172,
+                                "longitude": 127.0473
+                              }
+                            }
+                          ]
+                        }
+                        """, MediaType.APPLICATION_JSON));
+
+        ResolvedLocation result = resolver.resolve("강남 19시");
+
+        assertThat(result.status()).isEqualTo(LocationResolutionStatus.RESOLVED);
+        assertThat(result.resolvedBy()).isEqualTo(LocationResolvedBy.GOOGLE_PLACES);
+        server.verify();
+    }
+
+    @Test
     void 결과가_없으면_failed를_반환한다() {
         server.expect(requestTo("https://places.test/v1/places:searchText"))
                 .andRespond(withSuccess("""
@@ -204,23 +238,6 @@ class HttpGooglePlacesLocationResolverTest {
 
     @Test
     void 일반맥락어_입력은_places_결과가_있어도_failed를_반환한다() {
-        server.expect(requestTo("https://places.test/v1/places:searchText"))
-                .andRespond(withSuccess("""
-                        {
-                          "places": [
-                            {
-                              "id": "places/abc",
-                              "displayName": { "text": "회사식당" },
-                              "formattedAddress": "서울특별시 강남구 테헤란로 1",
-                              "location": {
-                                "latitude": 37.5001,
-                                "longitude": 127.0362
-                              }
-                            }
-                          ]
-                        }
-                        """, MediaType.APPLICATION_JSON));
-
         ResolvedLocation result = resolver.resolve("회사 회식");
 
         assertThat(result.status()).isEqualTo(LocationResolutionStatus.FAILED);
@@ -252,6 +269,61 @@ class HttpGooglePlacesLocationResolverTest {
         assertThat(result.status()).isEqualTo(LocationResolutionStatus.APPROXIMATED);
         assertThat(result.resolvedBy()).isEqualTo(LocationResolvedBy.GOOGLE_PLACES);
         assertThat(result.confidence()).isEqualTo(0.65);
+        server.verify();
+    }
+
+    @Test
+    void display_name이_맞고_주소가_영어여도_단일지역단서는_approximated로_본다() {
+        server.expect(requestTo("https://places.test/v1/places:searchText"))
+                .andRespond(withSuccess("""
+                        {
+                          "places": [
+                            {
+                              "id": "places/abc",
+                              "displayName": { "text": "강남" },
+                              "formattedAddress": "Yeoksam-dong, Seoul, South Korea",
+                              "location": {
+                                "latitude": 37.497952,
+                                "longitude": 127.02761899999999
+                              }
+                            }
+                          ]
+                        }
+                        """, MediaType.APPLICATION_JSON));
+
+        ResolvedLocation result = resolver.resolve("강남 19시");
+
+        assertThat(result.status()).isEqualTo(LocationResolutionStatus.APPROXIMATED);
+        assertThat(result.resolvedBy()).isEqualTo(LocationResolvedBy.GOOGLE_PLACES);
+        assertThat(result.normalizedQuery()).isEqualTo("강남");
+        assertThat(result.displayLocation()).isEqualTo("Yeoksam-dong, Seoul, South Korea");
+        assertThat(result.confidence()).isEqualTo(0.65);
+        server.verify();
+    }
+
+    @Test
+    void business_token이_빠진_display_name만으로는_강남_목구멍을_통과시키지_않는다() {
+        server.expect(requestTo("https://places.test/v1/places:searchText"))
+                .andRespond(withSuccess("""
+                        {
+                          "places": [
+                            {
+                              "id": "places/abc",
+                              "displayName": { "text": "강남" },
+                              "formattedAddress": "Yeoksam-dong, Seoul, South Korea",
+                              "location": {
+                                "latitude": 37.497952,
+                                "longitude": 127.02761899999999
+                              }
+                            }
+                          ]
+                        }
+                        """, MediaType.APPLICATION_JSON));
+
+        ResolvedLocation result = resolver.resolve("강남 목구멍");
+
+        assertThat(result.status()).isEqualTo(LocationResolutionStatus.FAILED);
+        assertThat(result.resolvedBy()).isNull();
         server.verify();
     }
 
