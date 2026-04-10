@@ -208,7 +208,6 @@ public class HttpGooglePlacesLocationResolver implements GooglePlacesLocationRes
         }
 
         boolean hasFormattedAddress = StringUtils.hasText(place.formattedAddress());
-        boolean hasPlaceId = StringUtils.hasText(place.id());
         boolean directMatch = isDirectMatch(normalizedRawLocation, normalizedDisplayName, normalizedFormattedAddress);
         Alignment alignment = evaluateAlignment(informativeTokens, normalizedDisplayName, normalizedFormattedAddress);
 
@@ -219,13 +218,16 @@ public class HttpGooglePlacesLocationResolver implements GooglePlacesLocationRes
             return LocationResolutionStatus.RESOLVED;
         }
 
+        boolean exactSingleTokenNameMatch = alignment.informativeTokenCount() == 1
+                && normalizedDisplayName.equals(informativeTokens.getFirst());
+        boolean multiTokenPartialMatch = alignment.informativeTokenCount() >= 2
+                && alignment.alignedTokenCount() >= 1
+                && (alignment.nameAligned() || alignment.addressAligned());
         boolean hasMeaningfulPartialMatch = directMatch
-                || alignment.alignedTokenCount() >= 2
-                || (alignment.nameAligned() && alignment.informativeTokenCount() == 1)
-                || (alignment.addressAligned() && alignment.informativeTokenCount() == 1)
-                || (alignment.addressAligned() && alignment.informativeTokenCount() >= 2);
+                || exactSingleTokenNameMatch
+                || multiTokenPartialMatch;
 
-        if ((hasFormattedAddress || hasPlaceId) && hasMeaningfulPartialMatch) {
+        if (hasMeaningfulPartialMatch) {
             return LocationResolutionStatus.APPROXIMATED;
         }
 
@@ -233,8 +235,8 @@ public class HttpGooglePlacesLocationResolver implements GooglePlacesLocationRes
     }
 
     private boolean isDirectMatch(String normalizedRawLocation, String normalizedDisplayName, String normalizedFormattedAddress) {
-        return containsEitherWay(normalizedRawLocation, normalizedDisplayName)
-                || containsEitherWay(normalizedRawLocation, normalizedFormattedAddress);
+        return isExactMatch(normalizedRawLocation, normalizedDisplayName)
+                || isExactMatch(normalizedRawLocation, normalizedFormattedAddress);
     }
 
     private Alignment evaluateAlignment(
@@ -260,12 +262,12 @@ public class HttpGooglePlacesLocationResolver implements GooglePlacesLocationRes
         return new Alignment(nameAligned, addressAligned, alignedTokens.size(), informativeTokens.size());
     }
 
-    private boolean containsEitherWay(String source, String target) {
+    private boolean isExactMatch(String source, String target) {
         if (!StringUtils.hasText(source) || !StringUtils.hasText(target)) {
             return false;
         }
 
-        return source.contains(target) || target.contains(source);
+        return source.equals(target);
     }
 
     private String normalize(String value) {
