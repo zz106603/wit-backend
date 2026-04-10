@@ -119,6 +119,40 @@ class HttpGooglePlacesLocationResolverTest {
     }
 
     @Test
+    void 주소_숫자토큰은_places_query에서_보존한다() {
+        server.expect(requestTo("https://places.test/v1/places:searchText"))
+                .andExpect(content().json("""
+                        {
+                          "textQuery": "테헤란로 123",
+                          "languageCode": "ko",
+                          "regionCode": "KR",
+                          "pageSize": 1
+                        }
+                        """))
+                .andRespond(withSuccess("""
+                        {
+                          "places": [
+                            {
+                              "id": "places/abc",
+                              "displayName": { "text": "테헤란로 123" },
+                              "formattedAddress": "서울특별시 강남구 테헤란로 123",
+                              "location": {
+                                "latitude": 37.5001,
+                                "longitude": 127.0362
+                              }
+                            }
+                          ]
+                        }
+                        """, MediaType.APPLICATION_JSON));
+
+        ResolvedLocation result = resolver.resolve("테헤란로 123");
+
+        assertThat(result.status()).isEqualTo(LocationResolutionStatus.RESOLVED);
+        assertThat(result.resolvedBy()).isEqualTo(LocationResolvedBy.GOOGLE_PLACES);
+        server.verify();
+    }
+
+    @Test
     void 결과가_없으면_failed를_반환한다() {
         server.expect(requestTo("https://places.test/v1/places:searchText"))
                 .andRespond(withSuccess("""

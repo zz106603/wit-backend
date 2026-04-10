@@ -140,7 +140,7 @@ public class DefaultLocationResolver implements LocationResolver {
             return false;
         }
 
-        return result.confidence() != null && result.confidence() >= SUFFICIENT_CONFIDENCE_THRESHOLD;
+        return result.confidence() >= SUFFICIENT_CONFIDENCE_THRESHOLD;
     }
 
     private boolean isAcceptedGooglePlacesResolution(ResolvedLocation result, String rawLocation) {
@@ -157,10 +157,10 @@ public class DefaultLocationResolver implements LocationResolver {
         }
 
         if (result.status() == LocationResolutionStatus.RESOLVED) {
-            return result.confidence() != null && result.confidence() >= SUFFICIENT_CONFIDENCE_THRESHOLD;
+            return result.confidence() >= SUFFICIENT_CONFIDENCE_THRESHOLD;
         }
 
-        return result.status() == LocationResolutionStatus.APPROXIMATED && result.confidence() != null;
+        return result.status() == LocationResolutionStatus.APPROXIMATED;
     }
 
     private boolean isSuccessfulAiResult(ResolvedLocation aiResult, String rawLocation) {
