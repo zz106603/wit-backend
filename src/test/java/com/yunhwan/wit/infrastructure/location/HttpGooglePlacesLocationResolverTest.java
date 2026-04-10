@@ -99,6 +99,197 @@ class HttpGooglePlacesLocationResolverTest {
     }
 
     @Test
+    void 주소가_없으면_places_성공응답이어도_approximated로_낮춘다() {
+        server.expect(requestTo("https://places.test/v1/places:searchText"))
+                .andRespond(withSuccess("""
+                        {
+                          "places": [
+                            {
+                              "id": "places/abc",
+                              "displayName": { "text": "목구멍 강남점" },
+                              "location": {
+                                "latitude": 37.5001,
+                                "longitude": 127.0362
+                              }
+                            }
+                          ]
+                        }
+                        """, MediaType.APPLICATION_JSON));
+
+        ResolvedLocation result = resolver.resolve("강남 목구멍");
+
+        assertThat(result.status()).isEqualTo(LocationResolutionStatus.APPROXIMATED);
+        assertThat(result.resolvedBy()).isEqualTo(LocationResolvedBy.GOOGLE_PLACES);
+        assertThat(result.confidence()).isEqualTo(0.65);
+        assertThat(result.displayLocation()).isEqualTo("목구멍 강남점");
+        server.verify();
+    }
+
+    @Test
+    void 입력과_결과정합성이_약하면_places_성공응답이어도_approximated로_낮춘다() {
+        server.expect(requestTo("https://places.test/v1/places:searchText"))
+                .andRespond(withSuccess("""
+                        {
+                          "places": [
+                            {
+                              "id": "places/xyz",
+                              "displayName": { "text": "서울역" },
+                              "formattedAddress": "서울특별시 중구 한강대로 405",
+                              "location": {
+                                "latitude": 37.5547,
+                                "longitude": 126.9706
+                              }
+                            }
+                          ]
+                        }
+                        """, MediaType.APPLICATION_JSON));
+
+        ResolvedLocation result = resolver.resolve("강남 회식");
+
+        assertThat(result.status()).isEqualTo(LocationResolutionStatus.FAILED);
+        assertThat(result.resolvedBy()).isNull();
+        server.verify();
+    }
+
+    @Test
+    void 장소식별자와_주소정합성이_모두_약하면_failed를_반환한다() {
+        server.expect(requestTo("https://places.test/v1/places:searchText"))
+                .andRespond(withSuccess("""
+                        {
+                          "places": [
+                            {
+                              "displayName": { "text": "서울역" },
+                              "location": {
+                                "latitude": 37.5547,
+                                "longitude": 126.9706
+                              }
+                            }
+                          ]
+                        }
+                        """, MediaType.APPLICATION_JSON));
+
+        ResolvedLocation result = resolver.resolve("강남 회식");
+
+        assertThat(result.status()).isEqualTo(LocationResolutionStatus.FAILED);
+        assertThat(result.rawLocation()).isEqualTo("강남 회식");
+        server.verify();
+    }
+
+    @Test
+    void place_id가_없어도_의미있는_부분일치면_approximated를_반환한다() {
+        server.expect(requestTo("https://places.test/v1/places:searchText"))
+                .andRespond(withSuccess("""
+                        {
+                          "places": [
+                            {
+                              "displayName": { "text": "강남역 인근" },
+                              "formattedAddress": "서울특별시 강남구 테헤란로 1",
+                              "location": {
+                                "latitude": 37.5001,
+                                "longitude": 127.0362
+                              }
+                            }
+                          ]
+                        }
+                        """, MediaType.APPLICATION_JSON));
+
+        ResolvedLocation result = resolver.resolve("강남 목구멍");
+
+        assertThat(result.status()).isEqualTo(LocationResolutionStatus.APPROXIMATED);
+        assertThat(result.resolvedBy()).isEqualTo(LocationResolvedBy.GOOGLE_PLACES);
+        assertThat(result.confidence()).isEqualTo(0.65);
+        assertThat(result.displayLocation()).isEqualTo("서울특별시 강남구 테헤란로 1");
+        server.verify();
+    }
+
+    @Test
+    void 일반맥락어_입력은_places_결과가_있어도_failed를_반환한다() {
+        server.expect(requestTo("https://places.test/v1/places:searchText"))
+                .andRespond(withSuccess("""
+                        {
+                          "places": [
+                            {
+                              "id": "places/abc",
+                              "displayName": { "text": "회사식당" },
+                              "formattedAddress": "서울특별시 강남구 테헤란로 1",
+                              "location": {
+                                "latitude": 37.5001,
+                                "longitude": 127.0362
+                              }
+                            }
+                          ]
+                        }
+                        """, MediaType.APPLICATION_JSON));
+
+        ResolvedLocation result = resolver.resolve("회사 회식");
+
+        assertThat(result.status()).isEqualTo(LocationResolutionStatus.FAILED);
+        assertThat(result.resolvedBy()).isNull();
+        server.verify();
+    }
+
+    @Test
+    void 시간표현이_섞인_지역입력은_places_결과가_있어도_failed를_반환한다() {
+        server.expect(requestTo("https://places.test/v1/places:searchText"))
+                .andRespond(withSuccess("""
+                        {
+                          "places": [
+                            {
+                              "id": "places/abc",
+                              "displayName": { "text": "강남역" },
+                              "formattedAddress": "서울특별시 강남구 테헤란로 1",
+                              "location": {
+                                "latitude": 37.5001,
+                                "longitude": 127.0362
+                              }
+                            }
+                          ]
+                        }
+                        """, MediaType.APPLICATION_JSON));
+
+        ResolvedLocation result = resolver.resolve("강남 7시");
+
+        assertThat(result.status()).isEqualTo(LocationResolutionStatus.FAILED);
+        assertThat(result.resolvedBy()).isNull();
+        server.verify();
+    }
+
+    @Test
+    void 여러_places_후보중_failed가_아닌_더나은_후보를_선택한다() {
+        server.expect(requestTo("https://places.test/v1/places:searchText"))
+                .andRespond(withSuccess("""
+                        {
+                          "places": [
+                            {
+                              "displayName": { "text": "서울역" },
+                              "formattedAddress": "서울특별시 중구 한강대로 405",
+                              "location": {
+                                "latitude": 37.5547,
+                                "longitude": 126.9706
+                              }
+                            },
+                            {
+                              "displayName": { "text": "목구멍 가로수길점" },
+                              "formattedAddress": "서울특별시 강남구 강남대로 156길 36",
+                              "location": {
+                                "latitude": 37.5187,
+                                "longitude": 127.0220
+                              }
+                            }
+                          ]
+                        }
+                        """, MediaType.APPLICATION_JSON));
+
+        ResolvedLocation result = resolver.resolve("강남 목구멍");
+
+        assertThat(result.status()).isEqualTo(LocationResolutionStatus.RESOLVED);
+        assertThat(result.resolvedBy()).isEqualTo(LocationResolvedBy.GOOGLE_PLACES);
+        assertThat(result.normalizedQuery()).isEqualTo("목구멍 가로수길점");
+        assertThat(result.displayLocation()).isEqualTo("서울특별시 강남구 강남대로 156길 36");
+        server.verify();
+    }
+
+    @Test
     void places_api_실패는_infra_예외로_정규화한다() {
         server.expect(requestTo("https://places.test/v1/places:searchText"))
                 .andRespond(withServerError());
