@@ -40,40 +40,59 @@ public class GeminiLocationResolver implements AiLocationFallbackResolver {
             return ResolvedLocation.failed(rawLocation);
         }
 
-        log.info("{} rawLocation={}, step=AI, action=REQUEST", LOG_PREFIX, rawLocation);
-        GeminiGenerateContentResponse response = geminiApiClient.generateContent(
-                properties.model(),
-                buildRequest(rawLocation)
-        );
+        try {
+            log.info("{} rawLocation={}, step=AI, action=REQUEST", LOG_PREFIX, rawLocation);
+            GeminiGenerateContentResponse response = geminiApiClient.generateContent(
+                    properties.model(),
+                    buildRequest(rawLocation)
+            );
 
-        String text = extractText(response);
-        if (!StringUtils.hasText(text)) {
-            log.info("{} rawLocation={}, step=AI, status=FAILED, reason=empty-response-text", LOG_PREFIX, rawLocation);
-            return ResolvedLocation.failed(rawLocation);
-        }
+            String text = extractText(response);
+            if (!StringUtils.hasText(text)) {
+                log.info("{} rawLocation={}, step=AI, status=FAILED, reason=empty-response-text", LOG_PREFIX, rawLocation);
+                return ResolvedLocation.failed(rawLocation);
+            }
 
-        GeminiLocationPayload payload = parsePayload(text);
-        if (payload == null || !isUsablePayload(payload)) {
-            log.info("{} rawLocation={}, step=AI, status=FAILED, reason=unusable-payload", LOG_PREFIX, rawLocation);
-            return ResolvedLocation.failed(rawLocation);
-        }
+            GeminiLocationPayload payload = parsePayload(text);
+            if (payload == null || !isUsablePayload(payload)) {
+                log.info("{} rawLocation={}, step=AI, status=FAILED, reason=unusable-payload", LOG_PREFIX, rawLocation);
+                return ResolvedLocation.failed(rawLocation);
+            }
 
-        LocationResolutionStatus status = resolveStatus(payload.status());
-        if (status == LocationResolutionStatus.FAILED) {
-            log.info("{} rawLocation={}, step=AI, status=FAILED, reason=model-returned-failed", LOG_PREFIX, rawLocation);
-            return ResolvedLocation.failed(rawLocation);
-        }
+            LocationResolutionStatus status = resolveStatus(payload.status());
+            if (status == LocationResolutionStatus.FAILED) {
+                log.info("{} rawLocation={}, step=AI, status=FAILED, reason=model-returned-failed", LOG_PREFIX, rawLocation);
+                return ResolvedLocation.failed(rawLocation);
+            }
 
-        double confidence = resolveConfidence(payload.confidence());
-        if (status == LocationResolutionStatus.RESOLVED) {
+            double confidence = resolveConfidence(payload.confidence());
+            if (status == LocationResolutionStatus.RESOLVED) {
+                log.info(
+                        "{} rawLocation={}, step=AI, status={}, result=RESOLVED, displayLocation={}",
+                        LOG_PREFIX,
+                        rawLocation,
+                        status,
+                        payload.displayLocation().trim()
+                );
+                return ResolvedLocation.resolved(
+                        rawLocation,
+                        payload.normalizedQuery().trim(),
+                        payload.displayLocation().trim(),
+                        payload.lat(),
+                        payload.lng(),
+                        confidence,
+                        LocationResolvedBy.AI
+                );
+            }
+
             log.info(
-                    "{} rawLocation={}, step=AI, status={}, result=RESOLVED, displayLocation={}",
+                    "{} rawLocation={}, step=AI, status={}, result=APPROXIMATED, displayLocation={}",
                     LOG_PREFIX,
                     rawLocation,
                     status,
                     payload.displayLocation().trim()
             );
-            return ResolvedLocation.resolved(
+            return ResolvedLocation.approximated(
                     rawLocation,
                     payload.normalizedQuery().trim(),
                     payload.displayLocation().trim(),
@@ -82,24 +101,20 @@ public class GeminiLocationResolver implements AiLocationFallbackResolver {
                     confidence,
                     LocationResolvedBy.AI
             );
+        } catch (RuntimeException exception) {
+            log.warn(
+                    "{} rawLocation={}, step=AI, status=FAILED, reason=exception-caught",
+                    LOG_PREFIX,
+                    rawLocation,
+                    exception
+            );
+            log.info(
+                    "{} rawLocation={}, step=AI, status=FAILED, result=RETURNED, reason=exception-caught",
+                    LOG_PREFIX,
+                    rawLocation
+            );
+            return ResolvedLocation.failed(rawLocation);
         }
-
-        log.info(
-                "{} rawLocation={}, step=AI, status={}, result=APPROXIMATED, displayLocation={}",
-                LOG_PREFIX,
-                rawLocation,
-                status,
-                payload.displayLocation().trim()
-        );
-        return ResolvedLocation.approximated(
-                rawLocation,
-                payload.normalizedQuery().trim(),
-                payload.displayLocation().trim(),
-                payload.lat(),
-                payload.lng(),
-                confidence,
-                LocationResolvedBy.AI
-        );
     }
 
     private GeminiGenerateContentRequest buildRequest(String rawLocation) {
