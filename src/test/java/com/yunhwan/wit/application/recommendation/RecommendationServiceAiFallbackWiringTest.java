@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -101,6 +102,9 @@ class RecommendationServiceAiFallbackWiringTest extends IntegrationTestSupport {
                           "confidence":0.82,
                           "status":"RESOLVED"
                         }
+                        """))
+                .thenReturn(geminiResponse("""
+                        회사 회식은 강남 지역 일정으로 보고 우산을 챙기고 긴팔 + 가벼운 겉옷 차림을 추천합니다.
                         """));
 
         WeatherSnapshot currentWeather = snapshot(currentLocation, LocalDateTime.of(2026, 4, 13, 9, 0), 23, 23, 10, WeatherType.CLEAR);
@@ -126,9 +130,10 @@ class RecommendationServiceAiFallbackWiringTest extends IntegrationTestSupport {
         assertThat(result.resolvedLocation().status()).isEqualTo(LocationResolutionStatus.RESOLVED);
         assertThat(result.resolvedLocation().resolvedBy()).isEqualTo(LocationResolvedBy.AI);
         assertThat(result.resolvedLocation().displayLocation()).isEqualTo("서울특별시 강남구");
+        assertThat(result.outfitDecision().aiSummary()).contains("회사 회식");
 
         verify(googlePlacesLocationResolver).resolve("회사 회식");
-        verify(geminiApiClient).generateContent(any(), any(GeminiGenerateContentRequest.class));
+        verify(geminiApiClient, atLeastOnce()).generateContent(any(), any(GeminiGenerateContentRequest.class));
     }
 
     private GeminiGenerateContentResponse geminiResponse(String jsonText) {

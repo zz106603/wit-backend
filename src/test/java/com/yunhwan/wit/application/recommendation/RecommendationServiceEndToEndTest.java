@@ -8,6 +8,7 @@ import com.yunhwan.wit.application.location.DefaultLocationResolver;
 import com.yunhwan.wit.application.location.LocationResolver;
 import com.yunhwan.wit.application.location.RuleBasedLocationResolver;
 import com.yunhwan.wit.application.recommendation.RecommendationCache;
+import com.yunhwan.wit.application.summary.SummaryGenerationInput;
 import com.yunhwan.wit.application.summary.SummaryGenerator;
 import com.yunhwan.wit.application.weather.WeatherClient;
 import com.yunhwan.wit.domain.model.CalendarEvent;
@@ -236,7 +237,8 @@ class RecommendationServiceEndToEndTest {
     private static final class StubSummaryGenerator implements SummaryGenerator {
 
         @Override
-        public String generate(OutfitDecision outfitDecision) {
+        public String generate(SummaryGenerationInput input) {
+            OutfitDecision outfitDecision = input.outfitDecision();
             String umbrellaText = outfitDecision.needUmbrella() ? "우산을 챙기고" : "우산 없이";
             return umbrellaText + " " + outfitDecision.recommendedOutfitText() + " 차림을 추천합니다.";
         }

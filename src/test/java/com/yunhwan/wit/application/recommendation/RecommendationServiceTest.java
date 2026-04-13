@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.yunhwan.wit.application.location.CurrentLocationProvider;
 import com.yunhwan.wit.application.location.LocationResolver;
+import com.yunhwan.wit.application.summary.SummaryGenerationInput;
 import com.yunhwan.wit.application.summary.SummaryGenerator;
 import com.yunhwan.wit.application.weather.WeatherClient;
 import com.yunhwan.wit.domain.model.CalendarEvent;
@@ -69,6 +70,38 @@ class RecommendationServiceTest {
         assertThat(result.endWeather().targetTime()).isEqualTo(calendarEvent.endAt());
         assertThat(result.outfitDecision().needUmbrella()).isTrue();
         assertThat(result.outfitDecision().aiSummary()).isEqualTo("우산을 챙기고 긴팔 + 가벼운 겉옷 차림을 추천합니다.");
+    }
+
+    @Test
+    void 요약생성은_규칙엔진_결과와_날씨정보를_함께_입력으로_받는다() {
+        ResolvedLocation currentLocation = currentLocation();
+        ResolvedLocation eventLocation = eventLocation();
+        StubWeatherClient weatherClient = new StubWeatherClient();
+        TrackingSummaryGenerator summaryGenerator = new TrackingSummaryGenerator();
+        weatherClient.setCurrentWeather(currentLocation, snapshot(currentLocation, currentTime, 24, 24, 10, WeatherType.CLEAR));
+        weatherClient.setTimedWeather(eventLocation, calendarEvent.startAt(),
+                snapshot(eventLocation, calendarEvent.startAt(), 21, 21, 20, WeatherType.CLOUDY));
+        weatherClient.setTimedWeather(eventLocation, calendarEvent.endAt(),
+                snapshot(eventLocation, calendarEvent.endAt(), 18, 18, 70, WeatherType.RAIN));
+
+        RecommendationService recommendationService = new RecommendationService(
+                rawLocation -> eventLocation,
+                () -> currentLocation,
+                weatherClient,
+                new OutfitRuleEngine(),
+                new WeatherFailureFallbackDecisionProvider(),
+                summaryGenerator,
+                new InMemoryRecommendationCache(),
+                clock
+        );
+
+        RecommendationResult result = recommendationService.recommend(calendarEvent);
+
+        assertThat(summaryGenerator.capturedInput).isNotNull();
+        assertThat(summaryGenerator.capturedInput.outfitDecision().needUmbrella()).isTrue();
+        assertThat(summaryGenerator.capturedInput.currentWeather()).isEqualTo(result.currentWeather());
+        assertThat(summaryGenerator.capturedInput.startWeather()).isEqualTo(result.startWeather());
+        assertThat(summaryGenerator.capturedInput.endWeather()).isEqualTo(result.endWeather());
     }
 
     @Test
@@ -303,7 +336,7 @@ class RecommendationServiceTest {
                 weatherClient,
                 new OutfitRuleEngine(),
                 new WeatherFailureFallbackDecisionProvider(),
-                new StubSummaryGenerator(),
+                new TrackingSummaryGenerator(),
                 recommendationCache,
                 clock
         );
@@ -342,7 +375,8 @@ class RecommendationServiceTest {
     private static final class StubSummaryGenerator implements SummaryGenerator {
 
         @Override
-        public String generate(OutfitDecision outfitDecision) {
+        public String generate(SummaryGenerationInput input) {
+            OutfitDecision outfitDecision = input.outfitDecision();
             String umbrellaText = outfitDecision.needUmbrella() ? "우산을 챙기고" : "우산 없이";
             return umbrellaText + " " + outfitDecision.recommendedOutfitText() + " 차림을 추천합니다.";
         }
@@ -351,8 +385,21 @@ class RecommendationServiceTest {
     private static final class FailingSummaryGenerator implements SummaryGenerator {
 
         @Override
-        public String generate(OutfitDecision outfitDecision) {
+        public String generate(SummaryGenerationInput input) {
             throw new RuntimeException("summary failure");
+        }
+    }
+
+    private static final class TrackingSummaryGenerator implements SummaryGenerator {
+
+        private SummaryGenerationInput capturedInput;
+
+        @Override
+        public String generate(SummaryGenerationInput input) {
+            this.capturedInput = input;
+            OutfitDecision outfitDecision = input.outfitDecision();
+            String umbrellaText = outfitDecision.needUmbrella() ? "우산을 챙기고" : "우산 없이";
+            return umbrellaText + " " + outfitDecision.recommendedOutfitText() + " 차림을 추천합니다.";
         }
     }
 

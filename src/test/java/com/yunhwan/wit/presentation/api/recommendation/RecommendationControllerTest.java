@@ -53,9 +53,9 @@ class RecommendationControllerTest {
                 .andExpect(jsonPath("$.recommendations[0].resolvedLocation.resolvedBy").value("GOOGLE_PLACES"))
                 .andExpect(jsonPath("$.recommendations[0].needUmbrella").value(true))
                 .andExpect(jsonPath("$.recommendations[0].recommendedOutfitText").value("긴팔 + 가벼운 겉옷"))
+                .andExpect(jsonPath("$.recommendations[0].aiSummary").value("종료 시점 비 예보가 있어 우산과 긴팔 + 가벼운 겉옷이 필요합니다."))
                 .andExpect(jsonPath("$.recommendations[0].weatherFallbackApplied").value(false))
-                .andExpect(jsonPath("$.recommendations[0].endWeather.weatherType").value("RAIN"))
-                .andExpect(jsonPath("$.recommendations[0].aiSummary").doesNotExist());
+                .andExpect(jsonPath("$.recommendations[0].endWeather.weatherType").value("RAIN"));
     }
 
     @Test
@@ -131,7 +131,7 @@ class RecommendationControllerTest {
                 "종료 시점 체감온도 기준으로 긴팔 + 가벼운 겉옷을 추천합니다.",
                 -6,
                 "현재보다 종료 시점이 더 쌀쌀합니다.",
-                null
+                "종료 시점 비 예보가 있어 우산과 긴팔 + 가벼운 겉옷이 필요합니다."
         );
     }
 
