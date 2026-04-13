@@ -89,13 +89,10 @@ public class GoogleIntegrationService {
                 System.identityHashCode(googleIntegrationRepository)
         );
 
-        List<CalendarEvent> calendarEvents = googleCalendarClient.fetchUpcomingEvents(
-                googleIntegration,
-                now,
-                DEFAULT_EVENT_LIMIT
-        );
+        Resolution resolution = resolveFetchableIntegration(userId, googleIntegration, now);
+        List<CalendarEvent> calendarEvents = fetchUpcomingEvents(resolution.googleIntegration(), now, userId, resolution.refreshed());
 
-        return new GoogleConnectionResult(true, googleIntegration, calendarEvents);
+        return new GoogleConnectionResult(true, resolution.googleIntegration(), calendarEvents);
     }
 
     public List<CalendarEvent> getUpcomingEvents() {
@@ -114,10 +111,13 @@ public class GoogleIntegrationService {
                             System.identityHashCode(googleIntegrationRepository)
                     );
                     log.info("[GoogleCalendarDebug] Google integration found. userId={}", userId);
-                    List<CalendarEvent> calendarEvents = googleCalendarClient.fetchUpcomingEvents(
-                            googleIntegration,
-                            LocalDateTime.now(clock),
-                            DEFAULT_EVENT_LIMIT
+                    LocalDateTime now = LocalDateTime.now(clock);
+                    Resolution resolution = resolveFetchableIntegration(userId, googleIntegration, now);
+                    List<CalendarEvent> calendarEvents = fetchUpcomingEvents(
+                            resolution.googleIntegration(),
+                            now,
+                            userId,
+                            resolution.refreshed()
                     );
                     log.info(
                             "[GoogleCalendarDebug] Upcoming events fetched. userId={}, count={}",
@@ -135,5 +135,109 @@ public class GoogleIntegrationService {
                     log.info("[GoogleCalendarDebug] Google integration not found. userId={}", userId);
                     return List.of();
                 });
+    }
+
+    private Resolution resolveFetchableIntegration(
+            String userId,
+            GoogleIntegration googleIntegration,
+            LocalDateTime now
+    ) {
+        GoogleAccessTokenStatus tokenStatus = googleIntegration.accessTokenStatus(now);
+        log.info(
+                "[GoogleIntegrationDebug] token status evaluated. userId={}, email={}, status={}",
+                userId,
+                googleIntegration.email(),
+                tokenStatus
+        );
+
+        return switch (tokenStatus) {
+            case ACTIVE -> new Resolution(googleIntegration, false);
+            case EXPIRED_REFRESHABLE -> new Resolution(refreshIntegration(userId, googleIntegration), true);
+            case EXPIRED_REAUTH_REQUIRED -> {
+                log.info(
+                        "[GoogleIntegrationDebug] re-auth required path triggered. userId={}, email={}, reason=expired-without-refresh-token",
+                        userId,
+                        googleIntegration.email()
+                );
+                throw new GoogleReauthenticationRequiredException("Google access token expired and re-authentication is required");
+            }
+        };
+    }
+
+    private GoogleIntegration refreshIntegration(String userId, GoogleIntegration googleIntegration) {
+        try {
+            log.info(
+                    "[GoogleIntegrationDebug] refresh attempted. userId={}, email={}",
+                    userId,
+                    googleIntegration.email()
+            );
+            GoogleAccessTokenRefreshResult refreshResult = googleOAuthClient.refreshAccessToken(
+                    googleIntegration.refreshToken()
+            );
+            log.info(
+                    "[GoogleIntegrationDebug] refresh succeeded. userId={}, email={}, accessTokenPresent={}",
+                    userId,
+                    googleIntegration.email(),
+                    refreshResult.accessToken() != null && !refreshResult.accessToken().isBlank()
+            );
+
+            GoogleIntegration refreshedIntegration = new GoogleIntegration(
+                    googleIntegration.userId(),
+                    googleIntegration.email(),
+                    refreshResult.accessToken(),
+                    googleIntegration.refreshToken(),
+                    refreshResult.accessTokenExpiresAt(),
+                    googleIntegration.connectedAt()
+            );
+            googleIntegrationRepository.save(refreshedIntegration);
+            log.info(
+                    "[GoogleIntegrationDebug] refreshed token persisted. userId={}, email={}",
+                    userId,
+                    refreshedIntegration.email()
+            );
+            return refreshedIntegration;
+        } catch (GoogleReauthenticationRequiredException exception) {
+            log.info(
+                    "[GoogleIntegrationDebug] re-auth required path triggered. userId={}, email={}, reason=refresh-rejected",
+                    userId,
+                    googleIntegration.email()
+            );
+            throw exception;
+        } catch (IllegalArgumentException exception) {
+            log.info(
+                    "[GoogleIntegrationDebug] re-auth required path triggered. userId={}, email={}, reason=refresh-impossible",
+                    userId,
+                    googleIntegration.email()
+            );
+            throw new GoogleReauthenticationRequiredException("Google refresh token is not available");
+        } catch (GoogleIntegrationUnavailableException exception) {
+            throw exception;
+        }
+    }
+
+    private List<CalendarEvent> fetchUpcomingEvents(
+            GoogleIntegration googleIntegration,
+            LocalDateTime now,
+            String userId,
+            boolean refreshed
+    ) {
+        if (refreshed) {
+            log.info(
+                    "[GoogleIntegrationDebug] calendar fetch continued with refreshed token. userId={}, email={}",
+                    userId,
+                    googleIntegration.email()
+            );
+        }
+        return googleCalendarClient.fetchUpcomingEvents(
+                googleIntegration,
+                now,
+                DEFAULT_EVENT_LIMIT
+        );
+    }
+
+    private record Resolution(
+            GoogleIntegration googleIntegration,
+            boolean refreshed
+    ) {
     }
 }

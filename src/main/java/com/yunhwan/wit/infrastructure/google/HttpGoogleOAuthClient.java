@@ -3,11 +3,13 @@ package com.yunhwan.wit.infrastructure.google;
 import com.yunhwan.wit.application.google.GoogleOAuthClient;
 import com.yunhwan.wit.application.google.GoogleAccessTokenRefreshResult;
 import com.yunhwan.wit.application.google.GoogleOAuthToken;
+import com.yunhwan.wit.application.google.GoogleReauthenticationRequiredException;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Objects;
 import org.springframework.http.MediaType;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestClient;
@@ -133,10 +135,18 @@ public class HttpGoogleOAuthClient implements GoogleOAuthClient {
                     .retrieve()
                     .body(GoogleTokenResponse.class);
         } catch (RestClientResponseException exception) {
+            if (isReauthenticationRequired(exception.getStatusCode())) {
+                throw new GoogleReauthenticationRequiredException("Google refresh token is no longer valid");
+            }
             throw new GoogleIntegrationInfrastructureException("Google refresh token request failed", exception);
         } catch (RestClientException exception) {
             throw new GoogleIntegrationInfrastructureException("Google refresh token communication failed", exception);
         }
+    }
+
+    private boolean isReauthenticationRequired(HttpStatusCode statusCode) {
+        int value = statusCode.value();
+        return value == 400 || value == 401;
     }
 
     private GoogleUserInfoResponse requestUserInfo(String accessToken) {

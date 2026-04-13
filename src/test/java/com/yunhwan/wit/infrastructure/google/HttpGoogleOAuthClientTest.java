@@ -9,9 +9,11 @@ import static org.springframework.test.web.client.match.MockRestRequestMatchers.
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withBadRequest;
 
 import com.yunhwan.wit.application.google.GoogleOAuthToken;
 import com.yunhwan.wit.application.google.GoogleAccessTokenRefreshResult;
+import com.yunhwan.wit.application.google.GoogleReauthenticationRequiredException;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -119,6 +121,17 @@ class HttpGoogleOAuthClientTest {
         assertThat(result.accessToken()).isEqualTo("new-access-token");
         assertThat(result.accessTokenExpiresAt()).isEqualTo(LocalDateTime.of(2026, 4, 7, 11, 0));
         server.verify();
+    }
+
+    @Test
+    void refresh_token_요청이_400이면_reauth_required를_던진다() {
+        server.expect(requestTo("https://oauth2.googleapis.test/token"))
+                .andExpect(method(HttpMethod.POST))
+                .andRespond(withBadRequest());
+
+        assertThatThrownBy(() -> googleOAuthClient.refreshAccessToken("refresh-token"))
+                .isInstanceOf(GoogleReauthenticationRequiredException.class)
+                .hasMessage("Google refresh token is no longer valid");
     }
 
     @Test
