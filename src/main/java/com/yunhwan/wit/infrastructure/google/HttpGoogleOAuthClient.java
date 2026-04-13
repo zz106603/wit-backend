@@ -1,6 +1,7 @@
 package com.yunhwan.wit.infrastructure.google;
 
 import com.yunhwan.wit.application.google.GoogleOAuthClient;
+import com.yunhwan.wit.application.google.GoogleAccessTokenRefreshResult;
 import com.yunhwan.wit.application.google.GoogleOAuthToken;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
@@ -17,6 +18,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 public class HttpGoogleOAuthClient implements GoogleOAuthClient {
 
     private static final String AUTHORIZATION_CODE_GRANT_TYPE = "authorization_code";
+    private static final String REFRESH_TOKEN_GRANT_TYPE = "refresh_token";
 
     private final RestClient googleOAuthRestClient;
     private final GoogleOAuthProperties properties;
@@ -77,6 +79,23 @@ public class HttpGoogleOAuthClient implements GoogleOAuthClient {
         );
     }
 
+    @Override
+    public GoogleAccessTokenRefreshResult refreshAccessToken(String refreshToken) {
+        if (!StringUtils.hasText(refreshToken)) {
+            throw new IllegalArgumentException("refreshToken must not be blank");
+        }
+
+        GoogleTokenResponse tokenResponse = requestRefreshToken(refreshToken);
+        if (tokenResponse == null || !StringUtils.hasText(tokenResponse.accessToken())) {
+            throw new GoogleIntegrationInfrastructureException("Google refresh token response is invalid");
+        }
+
+        return new GoogleAccessTokenRefreshResult(
+                tokenResponse.accessToken(),
+                LocalDateTime.now(clock).plusSeconds(resolveExpiresIn(tokenResponse))
+        );
+    }
+
     private GoogleTokenResponse requestToken(String code) {
         try {
             LinkedMultiValueMap<String, String> form = new LinkedMultiValueMap<>();
@@ -96,6 +115,27 @@ public class HttpGoogleOAuthClient implements GoogleOAuthClient {
             throw new GoogleIntegrationInfrastructureException("Google token request failed", exception);
         } catch (RestClientException exception) {
             throw new GoogleIntegrationInfrastructureException("Google token communication failed", exception);
+        }
+    }
+
+    private GoogleTokenResponse requestRefreshToken(String refreshToken) {
+        try {
+            LinkedMultiValueMap<String, String> form = new LinkedMultiValueMap<>();
+            form.add("refresh_token", refreshToken.trim());
+            form.add("client_id", properties.clientId());
+            form.add("client_secret", properties.clientSecret());
+            form.add("grant_type", REFRESH_TOKEN_GRANT_TYPE);
+
+            return googleOAuthRestClient.post()
+                    .uri(properties.tokenUrl())
+                    .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                    .body(form)
+                    .retrieve()
+                    .body(GoogleTokenResponse.class);
+        } catch (RestClientResponseException exception) {
+            throw new GoogleIntegrationInfrastructureException("Google refresh token request failed", exception);
+        } catch (RestClientException exception) {
+            throw new GoogleIntegrationInfrastructureException("Google refresh token communication failed", exception);
         }
     }
 
