@@ -2,6 +2,7 @@ package com.yunhwan.wit.application.recommendation;
 
 import com.yunhwan.wit.application.location.CurrentLocationProvider;
 import com.yunhwan.wit.application.location.LocationResolver;
+import com.yunhwan.wit.application.summary.SummaryGenerationInput;
 import com.yunhwan.wit.application.summary.SummaryGenerator;
 import com.yunhwan.wit.application.weather.WeatherClient;
 import com.yunhwan.wit.application.weather.WeatherForecastSnapshots;
@@ -82,8 +83,14 @@ public class RecommendationService {
         WeatherSnapshot endWeather = forecastSnapshots == null ? null : forecastSnapshots.endWeather();
 
         if (currentWeather == null || startWeather == null || endWeather == null) {
+            OutfitDecision fallbackDecision = summarize(
+                    weatherFailureFallbackDecisionProvider.provide(),
+                    null,
+                    null,
+                    null
+            );
             RecommendationResult fallbackResult = new RecommendationResult(
-                    summarize(weatherFailureFallbackDecisionProvider.provide()),
+                    fallbackDecision,
                     calendarEvent,
                     resolvedLocation,
                     null,
@@ -97,7 +104,12 @@ public class RecommendationService {
         }
 
         log.info("[RecommendationDebug] rule engine before. eventId={}", calendarEvent.eventId());
-        OutfitDecision outfitDecision = summarize(outfitRuleEngine.decide(currentWeather, startWeather, endWeather));
+        OutfitDecision outfitDecision = summarize(
+                outfitRuleEngine.decide(currentWeather, startWeather, endWeather),
+                currentWeather,
+                startWeather,
+                endWeather
+        );
         log.info(
                 "[RecommendationDebug] rule engine after. eventId={}, needUmbrella={}, recommendedOutfitText={}",
                 calendarEvent.eventId(),
@@ -270,12 +282,33 @@ public class RecommendationService {
         }
     }
 
-    private OutfitDecision summarize(OutfitDecision outfitDecision) {
+    private OutfitDecision summarize(
+            OutfitDecision outfitDecision,
+            WeatherSnapshot currentWeather,
+            WeatherSnapshot startWeather,
+            WeatherSnapshot endWeather
+    ) {
         try {
-            return outfitDecision.withAiSummary(summaryGenerator.generate(outfitDecision));
+            log.info(
+                    "[RecommendationDebug] summary generation before. needUmbrella={}, recommendedOutfitText={}",
+                    outfitDecision.needUmbrella(),
+                    outfitDecision.recommendedOutfitText()
+            );
+            String summary = summaryGenerator.generate(new SummaryGenerationInput(
+                    outfitDecision,
+                    currentWeather,
+                    startWeather,
+                    endWeather
+            ));
+            log.info(
+                    "[RecommendationDebug] summary generation after. success=true, needUmbrella={}, recommendedOutfitText={}",
+                    outfitDecision.needUmbrella(),
+                    outfitDecision.recommendedOutfitText()
+            );
+            return outfitDecision.withAiSummary(summary);
         } catch (RuntimeException exception) {
             log.warn(
-                    "AI summary generation failed. fallback summary will be used. needUmbrella={}, recommendedOutfitLevel={}",
+                    "[RecommendationDebug] summary generation failed. fallback summary will be used. needUmbrella={}, recommendedOutfitLevel={}",
                     outfitDecision.needUmbrella(),
                     outfitDecision.recommendedOutfitLevel(),
                     exception
