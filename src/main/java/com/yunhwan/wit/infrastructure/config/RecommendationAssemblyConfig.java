@@ -20,6 +20,8 @@ import com.yunhwan.wit.domain.model.LocationResolvedBy;
 import com.yunhwan.wit.domain.model.ResolvedLocation;
 import com.yunhwan.wit.domain.rule.OutfitRuleEngine;
 import com.yunhwan.wit.domain.rule.WeatherFailureFallbackDecisionProvider;
+import com.yunhwan.wit.infrastructure.ai.GeminiApiClient;
+import com.yunhwan.wit.infrastructure.ai.GeminiApiProperties;
 import com.yunhwan.wit.infrastructure.location.CurrentLocationProperties;
 import com.yunhwan.wit.infrastructure.location.GooglePlacesProperties;
 import com.yunhwan.wit.infrastructure.location.HttpGooglePlacesLocationResolver;
@@ -28,7 +30,7 @@ import com.yunhwan.wit.infrastructure.location.RedisLocationResolutionCache;
 import com.yunhwan.wit.infrastructure.ai.GeminiLocationResolver;
 import com.yunhwan.wit.infrastructure.recommendation.RecommendationCacheProperties;
 import com.yunhwan.wit.infrastructure.recommendation.RedisRecommendationCache;
-import com.yunhwan.wit.infrastructure.summary.StubSummaryGenerator;
+import com.yunhwan.wit.infrastructure.summary.GeminiSummaryGenerator;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -131,8 +133,16 @@ public class RecommendationAssemblyConfig {
     }
 
     @Bean
-    public SummaryGenerator summaryGenerator() {
-        return new StubSummaryGenerator();
+    public GeminiSummaryGenerator geminiSummaryGenerator(
+            GeminiApiClient geminiApiClient,
+            GeminiApiProperties geminiApiProperties
+    ) {
+        return new GeminiSummaryGenerator(geminiApiClient, geminiApiProperties);
+    }
+
+    @Bean
+    public SummaryGenerator summaryGenerator(GeminiSummaryGenerator geminiSummaryGenerator) {
+        return geminiSummaryGenerator;
     }
 
     @Bean

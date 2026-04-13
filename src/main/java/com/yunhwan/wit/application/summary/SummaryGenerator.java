@@ -4,5 +4,5 @@ import com.yunhwan.wit.domain.model.OutfitDecision;
 
 public interface SummaryGenerator {
 
-    String generate(OutfitDecision outfitDecision);
+    String generate(SummaryGenerationInput input);
 }
