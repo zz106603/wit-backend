@@ -297,7 +297,7 @@ class HttpGoogleCalendarClientTest {
     }
 
     @Test
-    void 회사회식같은_일반_title은_rawLocation_후보로_승격하지_않는다() {
+    void location이_없어도_회사회식처럼_암묵적_장소성이_있는_title은_rawLocation_후보로_사용한다() {
         server.expect(requestTo(startsWith("https://www.googleapis.test/calendar/v3/calendars/primary/events")))
                 .andRespond(withSuccess("""
                         {
@@ -320,7 +320,7 @@ class HttpGoogleCalendarClientTest {
         );
 
         assertThat(events).hasSize(1);
-        assertThat(events.getFirst().rawLocation()).isNull();
+        assertThat(events.getFirst().rawLocation()).isEqualTo("회사 회식");
         server.verify();
     }
 
