@@ -2,15 +2,20 @@ package com.yunhwan.wit.infrastructure.ai;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.yunhwan.wit.application.location.AiLocationFallbackResolver;
 import com.yunhwan.wit.domain.model.LocationResolvedBy;
 import com.yunhwan.wit.domain.model.LocationResolutionStatus;
 import com.yunhwan.wit.domain.model.ResolvedLocation;
 import java.util.List;
 import java.util.Objects;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.util.StringUtils;
 
-public class GeminiLocationResolver {
+public class GeminiLocationResolver implements AiLocationFallbackResolver {
 
+    private static final Logger log = LoggerFactory.getLogger(GeminiLocationResolver.class);
+    private static final String LOG_PREFIX = "[LocationResolverFlow]";
     private static final String RESPONSE_MIME_TYPE = "application/json";
     private static final double DEFAULT_AI_CONFIDENCE = 0.7;
 
@@ -28,11 +33,14 @@ public class GeminiLocationResolver {
         this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper must not be null");
     }
 
+    @Override
     public ResolvedLocation resolve(String rawLocation) {
         if (!StringUtils.hasText(rawLocation)) {
+            log.info("{} rawLocation={}, step=AI, status=FAILED, reason=blank-input", LOG_PREFIX, rawLocation);
             return ResolvedLocation.failed(rawLocation);
         }
 
+        log.info("{} rawLocation={}, step=AI, action=REQUEST", LOG_PREFIX, rawLocation);
         GeminiGenerateContentResponse response = geminiApiClient.generateContent(
                 properties.model(),
                 buildRequest(rawLocation)
@@ -40,21 +48,31 @@ public class GeminiLocationResolver {
 
         String text = extractText(response);
         if (!StringUtils.hasText(text)) {
+            log.info("{} rawLocation={}, step=AI, status=FAILED, reason=empty-response-text", LOG_PREFIX, rawLocation);
             return ResolvedLocation.failed(rawLocation);
         }
 
         GeminiLocationPayload payload = parsePayload(text);
         if (payload == null || !isUsablePayload(payload)) {
+            log.info("{} rawLocation={}, step=AI, status=FAILED, reason=unusable-payload", LOG_PREFIX, rawLocation);
             return ResolvedLocation.failed(rawLocation);
         }
 
         LocationResolutionStatus status = resolveStatus(payload.status());
         if (status == LocationResolutionStatus.FAILED) {
+            log.info("{} rawLocation={}, step=AI, status=FAILED, reason=model-returned-failed", LOG_PREFIX, rawLocation);
             return ResolvedLocation.failed(rawLocation);
         }
 
         double confidence = resolveConfidence(payload.confidence());
         if (status == LocationResolutionStatus.RESOLVED) {
+            log.info(
+                    "{} rawLocation={}, step=AI, status={}, result=RESOLVED, displayLocation={}",
+                    LOG_PREFIX,
+                    rawLocation,
+                    status,
+                    payload.displayLocation().trim()
+            );
             return ResolvedLocation.resolved(
                     rawLocation,
                     payload.normalizedQuery().trim(),
@@ -66,6 +84,13 @@ public class GeminiLocationResolver {
             );
         }
 
+        log.info(
+                "{} rawLocation={}, step=AI, status={}, result=APPROXIMATED, displayLocation={}",
+                LOG_PREFIX,
+                rawLocation,
+                status,
+                payload.displayLocation().trim()
+        );
         return ResolvedLocation.approximated(
                 rawLocation,
                 payload.normalizedQuery().trim(),
