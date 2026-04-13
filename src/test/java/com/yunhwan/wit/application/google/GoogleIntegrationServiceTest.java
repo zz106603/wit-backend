@@ -1,6 +1,7 @@
 package com.yunhwan.wit.application.google;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.yunhwan.wit.domain.model.CalendarEvent;
 import java.time.Clock;
@@ -95,6 +96,123 @@ class GoogleIntegrationServiceTest {
         assertThat(calendarClient.lastIntegration).isNotNull();
     }
 
+    @Test
+    void 만료된_토큰이_refresh가능하면_refresh후_같은요청으로_캘린더를_조회한다() {
+        InMemoryGoogleIntegrationRepository repository = new InMemoryGoogleIntegrationRepository();
+        repository.save(new GoogleIntegration(
+                "default-user",
+                "user@wit.local",
+                "expired-access-token",
+                "refresh-token",
+                LocalDateTime.of(2026, 4, 4, 8, 0),
+                LocalDateTime.of(2026, 4, 4, 7, 0)
+        ));
+        RecordingGoogleCalendarClient calendarClient = new RecordingGoogleCalendarClient(List.of(event("event-3")));
+        RefreshableGoogleOAuthClient googleOAuthClient = RefreshableGoogleOAuthClient.success(
+                "new-access-token",
+                LocalDateTime.of(2026, 4, 4, 12, 0)
+        );
+        GoogleIntegrationService service = new GoogleIntegrationService(
+                googleOAuthClient,
+                calendarClient,
+                repository,
+                () -> "default-user",
+                clock
+        );
+
+        List<CalendarEvent> result = service.getUpcomingEvents();
+
+        assertThat(result).hasSize(1);
+        assertThat(googleOAuthClient.refreshInvocationCount).isEqualTo(1);
+        assertThat(calendarClient.lastIntegration.accessToken()).isEqualTo("new-access-token");
+        assertThat(repository.findByUserId("default-user")).get().extracting(GoogleIntegration::accessToken)
+                .isEqualTo("new-access-token");
+    }
+
+    @Test
+    void 만료된_토큰_refresh중_reauth가_필요하면_예외를_던진다() {
+        InMemoryGoogleIntegrationRepository repository = new InMemoryGoogleIntegrationRepository();
+        repository.save(new GoogleIntegration(
+                "default-user",
+                "user@wit.local",
+                "expired-access-token",
+                "refresh-token",
+                LocalDateTime.of(2026, 4, 4, 8, 0),
+                LocalDateTime.of(2026, 4, 4, 7, 0)
+        ));
+        GoogleIntegrationService service = new GoogleIntegrationService(
+                RefreshableGoogleOAuthClient.reauthRequired(),
+                new RecordingGoogleCalendarClient(List.of(event("event-4"))),
+                repository,
+                () -> "default-user",
+                clock
+        );
+
+        assertThatThrownBy(service::getUpcomingEvents)
+                .isInstanceOf(GoogleReauthenticationRequiredException.class);
+    }
+
+    @Test
+    void 만료되었고_refresh불가면_즉시_reauth_required를_던진다() {
+        InMemoryGoogleIntegrationRepository repository = new InMemoryGoogleIntegrationRepository();
+        repository.save(new GoogleIntegration(
+                "default-user",
+                "user@wit.local",
+                "expired-access-token",
+                "",
+                LocalDateTime.of(2026, 4, 4, 8, 0),
+                LocalDateTime.of(2026, 4, 4, 7, 0)
+        ));
+        RefreshableGoogleOAuthClient googleOAuthClient = RefreshableGoogleOAuthClient.success(
+                "new-access-token",
+                LocalDateTime.of(2026, 4, 4, 12, 0)
+        );
+        GoogleIntegrationService service = new GoogleIntegrationService(
+                googleOAuthClient,
+                new RecordingGoogleCalendarClient(List.of(event("event-5"))),
+                repository,
+                () -> "default-user",
+                clock
+        );
+
+        assertThatThrownBy(service::getUpcomingEvents)
+                .isInstanceOf(GoogleReauthenticationRequiredException.class);
+        assertThat(googleOAuthClient.refreshInvocationCount).isZero();
+    }
+
+    @Test
+    void refresh외부실패면_integration_unavailable을_던진다() {
+        InMemoryGoogleIntegrationRepository repository = new InMemoryGoogleIntegrationRepository();
+        repository.save(new GoogleIntegration(
+                "default-user",
+                "user@wit.local",
+                "expired-access-token",
+                "refresh-token",
+                LocalDateTime.of(2026, 4, 4, 8, 0),
+                LocalDateTime.of(2026, 4, 4, 7, 0)
+        ));
+        GoogleIntegrationService service = new GoogleIntegrationService(
+                RefreshableGoogleOAuthClient.externalFailure(),
+                new RecordingGoogleCalendarClient(List.of(event("event-6"))),
+                repository,
+                () -> "default-user",
+                clock
+        );
+
+        assertThatThrownBy(service::getUpcomingEvents)
+                .isInstanceOf(GoogleIntegrationUnavailableException.class);
+    }
+
+    private CalendarEvent event(String eventId) {
+        return new CalendarEvent(
+                eventId,
+                "점심 미팅",
+                LocalDateTime.of(2026, 4, 4, 12, 0),
+                LocalDateTime.of(2026, 4, 4, 13, 0),
+                "판교"
+        );
+    }
+
     private static class StubGoogleOAuthClient implements GoogleOAuthClient {
 
         @Override
@@ -139,6 +257,61 @@ class GoogleIntegrationServiceTest {
         @Override
         public GoogleAccessTokenRefreshResult refreshAccessToken(String refreshToken) {
             throw new UnsupportedOperationException("refreshAccessToken is not used in this test");
+        }
+    }
+
+    private static class RefreshableGoogleOAuthClient implements GoogleOAuthClient {
+
+        private final GoogleAccessTokenRefreshResult refreshResult;
+        private final RuntimeException refreshException;
+        private int refreshInvocationCount;
+
+        private RefreshableGoogleOAuthClient(
+                GoogleAccessTokenRefreshResult refreshResult,
+                RuntimeException refreshException
+        ) {
+            this.refreshResult = refreshResult;
+            this.refreshException = refreshException;
+        }
+
+        private static RefreshableGoogleOAuthClient success(String accessToken, LocalDateTime expiresAt) {
+            return new RefreshableGoogleOAuthClient(
+                    new GoogleAccessTokenRefreshResult(accessToken, expiresAt),
+                    null
+            );
+        }
+
+        private static RefreshableGoogleOAuthClient reauthRequired() {
+            return new RefreshableGoogleOAuthClient(
+                    null,
+                    new GoogleReauthenticationRequiredException("reauth required")
+            );
+        }
+
+        private static RefreshableGoogleOAuthClient externalFailure() {
+            return new RefreshableGoogleOAuthClient(
+                    null,
+                    new GoogleIntegrationUnavailableException("google refresh unavailable")
+            );
+        }
+
+        @Override
+        public String buildLoginUrl() {
+            return "unused";
+        }
+
+        @Override
+        public GoogleOAuthToken exchangeCode(String code, String state) {
+            throw new UnsupportedOperationException("exchangeCode is not used in this test");
+        }
+
+        @Override
+        public GoogleAccessTokenRefreshResult refreshAccessToken(String refreshToken) {
+            refreshInvocationCount++;
+            if (refreshException != null) {
+                throw refreshException;
+            }
+            return refreshResult;
         }
     }
 
