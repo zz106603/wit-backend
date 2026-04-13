@@ -39,9 +39,9 @@
 
 ### 3.2 Weather fallback 정책
 - Step 20의 weather 목표는 `latest cached data -> safe default outfit` 순서의 fallback 정책을 정리하는 것이다.
-- 현재 코드에는 safe default outfit fallback은 이미 존재한다.
-- 다만 latest cached weather를 외부 실패 시 재사용하는 정책은 아직 Step 20 범위 안에서 남아 있는 작업이다.
-- 이후 구현에서는 weather client / cache 구조를 유지한 채, 외부 조회 실패 시 최신 캐시를 우선 사용하는 방향으로 정리한다.
+- 현재는 `CachingWeatherClient`에서 weather API 실패 시 latest cached weather를 먼저 조회하고, cache가 있으면 그 값을 그대로 rule engine 입력으로 사용한다.
+- latest cache도 없으면 `RecommendationService`가 기존 safe default outfit fallback으로 내려간다.
+- 이 정책으로 weather 외부 실패가 발생해도 recommendation 자체는 계속 제공되고, 규칙 엔진 책임도 유지된다.
 
 ### 3.3 AI failure 정책
 - location AI 실패는 location resolution 실패로 수렴시키고, 최종적으로 현재 위치 fallback 또는 기존 recommendation 흐름으로 이어지게 한다.
@@ -64,12 +64,11 @@
 - Google refresh 계약과 refresh 결과 모델이 추가됐다.
 - Google 재연동 필요 / Google 외부 연동 실패를 application 레벨에서 구분할 수 있게 됐다.
 - Calendar fetch 경로에서 refresh + continue same request 흐름이 연결됐다.
+- weather API 실패 시 latest cache 우선, cache miss 시 safe default로 이어지는 fallback이 연결됐다.
 - location AI 실패와 summary AI 실패는 recommendation을 중단하지 않도록 정리되어 있다.
-- weather safe default fallback은 이미 반영되어 있다.
 
 ---
 
 ## 5. 남은 작업 (TODO)
-- weather 실패 시 latest cache fallback 구현
 - presentation 레이어의 재인증 필요 error code / handler 정리
 - recommendation 응답의 degraded / fallback 표현 범위 정리
