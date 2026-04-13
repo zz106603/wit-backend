@@ -25,6 +25,7 @@ import com.yunhwan.wit.infrastructure.location.GooglePlacesProperties;
 import com.yunhwan.wit.infrastructure.location.HttpGooglePlacesLocationResolver;
 import com.yunhwan.wit.infrastructure.location.LocationCacheProperties;
 import com.yunhwan.wit.infrastructure.location.RedisLocationResolutionCache;
+import com.yunhwan.wit.infrastructure.ai.GeminiLocationResolver;
 import com.yunhwan.wit.infrastructure.recommendation.RecommendationCacheProperties;
 import com.yunhwan.wit.infrastructure.recommendation.RedisRecommendationCache;
 import com.yunhwan.wit.infrastructure.summary.StubSummaryGenerator;
@@ -44,8 +45,8 @@ import org.springframework.web.client.RestClient;
 public class RecommendationAssemblyConfig {
 
     @Bean
-    public AiLocationFallbackResolver aiLocationFallbackResolver() {
-        return ResolvedLocation::failed;
+    public AiLocationFallbackResolver aiLocationFallbackResolver(GeminiLocationResolver geminiLocationResolver) {
+        return geminiLocationResolver;
     }
 
     @Bean

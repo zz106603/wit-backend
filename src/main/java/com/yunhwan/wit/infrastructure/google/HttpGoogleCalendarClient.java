@@ -71,6 +71,9 @@ public class HttpGoogleCalendarClient implements GoogleCalendarClient {
     private static final Set<String> PLACE_LIKE_TOKEN_SUFFIXES = Set.of(
             "역", "동", "구", "로", "길", "점"
     );
+    private static final Set<String> IMPLICIT_LOCATION_TOKENS = Set.of(
+            "회사", "사무실", "본사", "오피스", "집", "학교"
+    );
 
     private final RestClient googleCalendarRestClient;
     private final GoogleCalendarProperties properties;
@@ -260,6 +263,10 @@ public class HttpGoogleCalendarClient implements GoogleCalendarClient {
         List<String> informativeTokens = tokenizeSummary(summary);
         if (informativeTokens.isEmpty()) {
             return false;
+        }
+
+        if (informativeTokens.stream().anyMatch(IMPLICIT_LOCATION_TOKENS::contains)) {
+            return true;
         }
 
         return informativeTokens.stream().anyMatch(this::isPlaceLikeToken);
