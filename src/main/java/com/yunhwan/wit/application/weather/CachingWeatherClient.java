@@ -12,6 +12,7 @@ import org.slf4j.LoggerFactory;
 public class CachingWeatherClient implements WeatherClient {
 
     private static final Logger log = LoggerFactory.getLogger(CachingWeatherClient.class);
+    private static final String LOG_PREFIX = "[RecommendationDebug]";
 
     private final WeatherClient delegate;
     private final WeatherCache weatherCache;
@@ -35,9 +36,24 @@ public class CachingWeatherClient implements WeatherClient {
             return cached;
         }
 
-        WeatherSnapshot weatherSnapshot = delegate.fetchCurrentWeather(location);
-        writeCurrentToCache(location, cacheTime, weatherSnapshot);
-        return weatherSnapshot;
+        try {
+            WeatherSnapshot weatherSnapshot = delegate.fetchCurrentWeather(location);
+            writeCurrentToCache(location, cacheTime, weatherSnapshot);
+            log.info("{} weather API success. type=CURRENT, location={}", LOG_PREFIX, location.displayLocation());
+            return weatherSnapshot;
+        } catch (RuntimeException exception) {
+            log.warn("{} weather API failed. type=CURRENT, location={}", LOG_PREFIX, location.displayLocation(), exception);
+            WeatherSnapshot latestCached = readLatestCurrentFromCache(location);
+            if (latestCached != null) {
+                log.info(
+                        "{} weather fallback used. source=CACHE, type=CURRENT, location={}",
+                        LOG_PREFIX,
+                        location.displayLocation()
+                );
+                return latestCached;
+            }
+            throw exception;
+        }
     }
 
     @Override
@@ -47,9 +63,36 @@ public class CachingWeatherClient implements WeatherClient {
             return cached;
         }
 
-        WeatherSnapshot weatherSnapshot = delegate.fetchWeatherAt(location, targetTime);
-        writeForecastToCache(location, targetTime, weatherSnapshot);
-        return weatherSnapshot;
+        try {
+            WeatherSnapshot weatherSnapshot = delegate.fetchWeatherAt(location, targetTime);
+            writeForecastToCache(location, targetTime, weatherSnapshot);
+            log.info(
+                    "{} weather API success. type=FORECAST, location={}, targetTime={}",
+                    LOG_PREFIX,
+                    location.displayLocation(),
+                    targetTime
+            );
+            return weatherSnapshot;
+        } catch (RuntimeException exception) {
+            log.warn(
+                    "{} weather API failed. type=FORECAST, location={}, targetTime={}",
+                    LOG_PREFIX,
+                    location.displayLocation(),
+                    targetTime,
+                    exception
+            );
+            WeatherSnapshot latestCached = readLatestForecastFromCache(location);
+            if (latestCached != null) {
+                log.info(
+                        "{} weather fallback used. source=CACHE, type=FORECAST, location={}, targetTime={}",
+                        LOG_PREFIX,
+                        location.displayLocation(),
+                        targetTime
+                );
+                return latestCached;
+            }
+            throw exception;
+        }
     }
 
     @Override
@@ -65,10 +108,41 @@ public class CachingWeatherClient implements WeatherClient {
         }
 
         if (cachedStart == null && cachedEnd == null) {
-            WeatherForecastSnapshots snapshots = delegate.fetchWeatherRange(location, startTime, endTime);
-            writeForecastToCache(location, startTime, snapshots.startWeather());
-            writeForecastToCache(location, endTime, snapshots.endWeather());
-            return snapshots;
+            try {
+                WeatherForecastSnapshots snapshots = delegate.fetchWeatherRange(location, startTime, endTime);
+                writeForecastToCache(location, startTime, snapshots.startWeather());
+                writeForecastToCache(location, endTime, snapshots.endWeather());
+                log.info(
+                        "{} weather API success. type=FORECAST_RANGE, location={}, startTime={}, endTime={}",
+                        LOG_PREFIX,
+                        location.displayLocation(),
+                        startTime,
+                        endTime
+                );
+                return snapshots;
+            } catch (RuntimeException exception) {
+                log.warn(
+                        "{} weather API failed. type=FORECAST_RANGE, location={}, startTime={}, endTime={}",
+                        LOG_PREFIX,
+                        location.displayLocation(),
+                        startTime,
+                        endTime,
+                        exception
+                );
+                WeatherSnapshot latestStart = readLatestForecastFromCache(location);
+                WeatherSnapshot latestEnd = readLatestForecastFromCache(location);
+                if (latestStart != null && latestEnd != null) {
+                    log.info(
+                            "{} weather fallback used. source=CACHE, type=FORECAST_RANGE, location={}, startTime={}, endTime={}",
+                            LOG_PREFIX,
+                            location.displayLocation(),
+                            startTime,
+                            endTime
+                    );
+                    return new WeatherForecastSnapshots(latestStart, latestEnd);
+                }
+                throw exception;
+            }
         }
 
         WeatherSnapshot startWeather = cachedStart != null ? cachedStart : fetchWeatherAt(location, startTime);
@@ -95,6 +169,24 @@ public class CachingWeatherClient implements WeatherClient {
                     targetTime,
                     exception
             );
+            return null;
+        }
+    }
+
+    private WeatherSnapshot readLatestCurrentFromCache(ResolvedLocation location) {
+        try {
+            return weatherCache.findLatestCurrent(location).orElse(null);
+        } catch (RuntimeException exception) {
+            log.warn("Weather cache latest read failed for current weather. location={}", location.displayLocation(), exception);
+            return null;
+        }
+    }
+
+    private WeatherSnapshot readLatestForecastFromCache(ResolvedLocation location) {
+        try {
+            return weatherCache.findLatestForecast(location).orElse(null);
+        } catch (RuntimeException exception) {
+            log.warn("Weather cache latest read failed for forecast weather. location={}", location.displayLocation(), exception);
             return null;
         }
     }

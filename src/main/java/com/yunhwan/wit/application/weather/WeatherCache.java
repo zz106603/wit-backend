@@ -11,6 +11,14 @@ public interface WeatherCache {
 
     Optional<WeatherSnapshot> findForecast(ResolvedLocation location, LocalDateTime targetTime);
 
+    default Optional<WeatherSnapshot> findLatestCurrent(ResolvedLocation location) {
+        return Optional.empty();
+    }
+
+    default Optional<WeatherSnapshot> findLatestForecast(ResolvedLocation location) {
+        return Optional.empty();
+    }
+
     void putCurrent(ResolvedLocation location, LocalDateTime cacheTime, WeatherSnapshot weatherSnapshot);
 
     void putForecast(ResolvedLocation location, LocalDateTime targetTime, WeatherSnapshot weatherSnapshot);

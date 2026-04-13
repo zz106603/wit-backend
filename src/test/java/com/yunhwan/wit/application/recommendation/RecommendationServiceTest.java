@@ -6,7 +6,9 @@ import com.yunhwan.wit.application.location.CurrentLocationProvider;
 import com.yunhwan.wit.application.location.LocationResolver;
 import com.yunhwan.wit.application.summary.SummaryGenerationInput;
 import com.yunhwan.wit.application.summary.SummaryGenerator;
+import com.yunhwan.wit.application.weather.CachingWeatherClient;
 import com.yunhwan.wit.application.weather.WeatherClient;
+import com.yunhwan.wit.application.weather.WeatherCache;
 import com.yunhwan.wit.domain.model.CalendarEvent;
 import com.yunhwan.wit.domain.model.LocationResolvedBy;
 import com.yunhwan.wit.domain.model.OutfitDecision;
@@ -191,6 +193,46 @@ class RecommendationServiceTest {
         assertThat(decision.aiSummary()).isEqualTo("우산을 챙기고 두꺼운 겉옷 차림을 추천합니다.");
         assertThat(ruleEngine.called).isFalse();
         assertThat(fallbackDecisionProvider.called).isTrue();
+    }
+
+    @Test
+    void 날씨_API가_실패해도_latest_cache가_있으면_캐시된_날씨로_추천을_계속_생성한다() {
+        ResolvedLocation currentLocation = currentLocation();
+        ResolvedLocation eventLocation = eventLocation();
+        InMemoryWeatherCache weatherCache = new InMemoryWeatherCache();
+        weatherCache.putCurrent(
+                currentLocation,
+                LocalDateTime.of(2026, 4, 2, 8, 0),
+                snapshot(currentLocation, LocalDateTime.of(2026, 4, 2, 8, 0), 20, 20, 10, WeatherType.CLEAR)
+        );
+        weatherCache.putForecast(
+                eventLocation,
+                LocalDateTime.of(2026, 4, 2, 15, 0),
+                snapshot(eventLocation, LocalDateTime.of(2026, 4, 2, 15, 0), 18, 18, 60, WeatherType.RAIN)
+        );
+        WeatherClient weatherClient = new CachingWeatherClient(new FailingWeatherClient(), weatherCache, clock);
+        TrackingRuleEngine ruleEngine = new TrackingRuleEngine();
+        TrackingFallbackDecisionProvider fallbackDecisionProvider = new TrackingFallbackDecisionProvider();
+
+        RecommendationService recommendationService = new RecommendationService(
+                rawLocation -> eventLocation,
+                () -> currentLocation,
+                weatherClient,
+                ruleEngine,
+                fallbackDecisionProvider,
+                new StubSummaryGenerator(),
+                new InMemoryRecommendationCache(),
+                clock
+        );
+
+        RecommendationResult result = recommendationService.recommend(calendarEvent);
+
+        assertThat(result.weatherFallbackApplied()).isFalse();
+        assertThat(result.currentWeather()).isNotNull();
+        assertThat(result.startWeather()).isNotNull();
+        assertThat(result.endWeather()).isNotNull();
+        assertThat(ruleEngine.called).isTrue();
+        assertThat(fallbackDecisionProvider.called).isFalse();
     }
 
     @Test
@@ -533,6 +575,55 @@ class RecommendationServiceTest {
         public OutfitDecision provide() {
             called = true;
             return super.provide();
+        }
+    }
+
+    private static final class InMemoryWeatherCache implements WeatherCache {
+
+        private final Map<String, WeatherSnapshot> store = new HashMap<>();
+
+        @Override
+        public Optional<WeatherSnapshot> findCurrent(ResolvedLocation location, LocalDateTime cacheTime) {
+            return Optional.ofNullable(store.get(key("current", location, cacheTime)));
+        }
+
+        @Override
+        public Optional<WeatherSnapshot> findForecast(ResolvedLocation location, LocalDateTime targetTime) {
+            return Optional.ofNullable(store.get(key("forecast", location, targetTime)));
+        }
+
+        @Override
+        public Optional<WeatherSnapshot> findLatestCurrent(ResolvedLocation location) {
+            return store.entrySet().stream()
+                    .filter(entry -> entry.getKey().startsWith(prefix("current", location)))
+                    .max(Map.Entry.comparingByKey())
+                    .map(Map.Entry::getValue);
+        }
+
+        @Override
+        public Optional<WeatherSnapshot> findLatestForecast(ResolvedLocation location) {
+            return store.entrySet().stream()
+                    .filter(entry -> entry.getKey().startsWith(prefix("forecast", location)))
+                    .max(Map.Entry.comparingByKey())
+                    .map(Map.Entry::getValue);
+        }
+
+        @Override
+        public void putCurrent(ResolvedLocation location, LocalDateTime cacheTime, WeatherSnapshot weatherSnapshot) {
+            store.put(key("current", location, cacheTime), weatherSnapshot);
+        }
+
+        @Override
+        public void putForecast(ResolvedLocation location, LocalDateTime targetTime, WeatherSnapshot weatherSnapshot) {
+            store.put(key("forecast", location, targetTime), weatherSnapshot);
+        }
+
+        private String key(String type, ResolvedLocation location, LocalDateTime targetTime) {
+            return prefix(type, location) + targetTime;
+        }
+
+        private String prefix(String type, ResolvedLocation location) {
+            return type + ":" + location.lat() + ":" + location.lng() + ":";
         }
     }
 }
