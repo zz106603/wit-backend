@@ -83,6 +83,10 @@ public class RecommendationService {
         WeatherSnapshot endWeather = forecastSnapshots == null ? null : forecastSnapshots.endWeather();
 
         if (currentWeather == null || startWeather == null || endWeather == null) {
+            log.info(
+                    "[RecommendationDebug] weather fallback used. source=SAFE_DEFAULT, eventId={}",
+                    calendarEvent.eventId()
+            );
             OutfitDecision fallbackDecision = summarize(
                     weatherFailureFallbackDecisionProvider.provide(),
                     null,

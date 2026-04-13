@@ -72,6 +72,35 @@ class CachingWeatherClientTest {
         assertThat(cache.findForecast(location, endTime)).contains(endSnapshot);
     }
 
+    @Test
+    void 현재날씨_API가_실패해도_latest_cached_current가_있으면_반환한다() {
+        ResolvedLocation location = resolvedLocation();
+        WeatherSnapshot latestSnapshot = currentSnapshot();
+        InMemoryWeatherCache cache = new InMemoryWeatherCache();
+        cache.putCurrent(location, LocalDateTime.of(2026, 4, 1, 8, 0), latestSnapshot);
+        CachingWeatherClient weatherClient = new CachingWeatherClient(new FailingWeatherClient(), cache, clock);
+
+        WeatherSnapshot result = weatherClient.fetchCurrentWeather(location);
+
+        assertThat(result).isEqualTo(latestSnapshot);
+    }
+
+    @Test
+    void 예보_range_API가_실패해도_latest_cached_forecast가_있으면_반환한다() {
+        ResolvedLocation location = resolvedLocation();
+        LocalDateTime startTime = LocalDateTime.of(2026, 4, 1, 18, 0);
+        LocalDateTime endTime = LocalDateTime.of(2026, 4, 1, 21, 0);
+        WeatherSnapshot latestForecast = forecastSnapshot(LocalDateTime.of(2026, 4, 1, 15, 0));
+        InMemoryWeatherCache cache = new InMemoryWeatherCache();
+        cache.putForecast(location, LocalDateTime.of(2026, 4, 1, 15, 0), latestForecast);
+        CachingWeatherClient weatherClient = new CachingWeatherClient(new FailingWeatherClient(), cache, clock);
+
+        WeatherForecastSnapshots result = weatherClient.fetchWeatherRange(location, startTime, endTime);
+
+        assertThat(result.startWeather()).isEqualTo(latestForecast);
+        assertThat(result.endWeather()).isEqualTo(latestForecast);
+    }
+
     private ResolvedLocation resolvedLocation() {
         return ResolvedLocation.resolved(
                 "강남 회식",
@@ -168,6 +197,28 @@ class CachingWeatherClientTest {
         }
     }
 
+    private static final class FailingWeatherClient implements WeatherClient {
+
+        @Override
+        public WeatherSnapshot fetchCurrentWeather(ResolvedLocation location) {
+            throw new RuntimeException("weather failure");
+        }
+
+        @Override
+        public WeatherSnapshot fetchWeatherAt(ResolvedLocation location, LocalDateTime targetTime) {
+            throw new RuntimeException("weather failure");
+        }
+
+        @Override
+        public WeatherForecastSnapshots fetchWeatherRange(
+                ResolvedLocation location,
+                LocalDateTime startTime,
+                LocalDateTime endTime
+        ) {
+            throw new RuntimeException("weather failure");
+        }
+    }
+
     private static final class InMemoryWeatherCache implements WeatherCache {
 
         private final Map<String, WeatherSnapshot> store = new HashMap<>();
@@ -180,6 +231,22 @@ class CachingWeatherClientTest {
         @Override
         public Optional<WeatherSnapshot> findForecast(ResolvedLocation location, LocalDateTime targetTime) {
             return Optional.ofNullable(store.get("forecast:" + location.lat() + ":" + location.lng() + ":" + targetTime));
+        }
+
+        @Override
+        public Optional<WeatherSnapshot> findLatestCurrent(ResolvedLocation location) {
+            return store.entrySet().stream()
+                    .filter(entry -> entry.getKey().startsWith("current:" + location.lat() + ":" + location.lng() + ":"))
+                    .max(Map.Entry.comparingByKey())
+                    .map(Map.Entry::getValue);
+        }
+
+        @Override
+        public Optional<WeatherSnapshot> findLatestForecast(ResolvedLocation location) {
+            return store.entrySet().stream()
+                    .filter(entry -> entry.getKey().startsWith("forecast:" + location.lat() + ":" + location.lng() + ":"))
+                    .max(Map.Entry.comparingByKey())
+                    .map(Map.Entry::getValue);
         }
 
         @Override

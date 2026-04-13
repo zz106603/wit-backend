@@ -13,6 +13,7 @@ import com.yunhwan.wit.domain.model.WeatherSnapshot;
 import com.yunhwan.wit.domain.model.WeatherType;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
@@ -60,6 +61,31 @@ class RedisWeatherCacheTest {
                 resolvedLocation(),
                 LocalDateTime.of(2026, 4, 1, 18, 0)
         ).orElseThrow();
+
+        assertThat(result).isEqualTo(snapshot());
+    }
+
+    @Test
+    void latest_forecast는_가장_최근_캐시를_선택한다() throws Exception {
+        String serialized = new ObjectMapper().findAndRegisterModules().writeValueAsString(snapshot());
+        StringRedisTemplate redisTemplate = mock(StringRedisTemplate.class);
+        @SuppressWarnings("unchecked")
+        ValueOperations<String, String> valueOperations = mock(ValueOperations.class);
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(redisTemplate.keys("weather:forecast:37.4979:127.0276:*"))
+                .thenReturn(Set.of(
+                        "weather:forecast:37.4979:127.0276:2026-04-01T15:00:00",
+                        "weather:forecast:37.4979:127.0276:2026-04-01T18:00:00"
+                ));
+        when(valueOperations.get("weather:forecast:37.4979:127.0276:2026-04-01T18:00:00")).thenReturn(serialized);
+
+        RedisWeatherCache weatherCache = new RedisWeatherCache(
+                redisTemplate,
+                new ObjectMapper().findAndRegisterModules(),
+                new WeatherCacheProperties(Duration.ofHours(1))
+        );
+
+        WeatherSnapshot result = weatherCache.findLatestForecast(resolvedLocation()).orElseThrow();
 
         assertThat(result).isEqualTo(snapshot());
     }
