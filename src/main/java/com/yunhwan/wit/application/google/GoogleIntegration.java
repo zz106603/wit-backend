@@ -20,4 +20,18 @@ public record GoogleIntegration(
         Objects.requireNonNull(accessTokenExpiresAt, "accessTokenExpiresAt must not be null");
         Objects.requireNonNull(connectedAt, "connectedAt must not be null");
     }
+
+    public GoogleAccessTokenStatus accessTokenStatus(LocalDateTime now) {
+        Objects.requireNonNull(now, "now must not be null");
+
+        if (accessTokenExpiresAt.isAfter(now)) {
+            return GoogleAccessTokenStatus.ACTIVE;
+        }
+
+        if (refreshToken != null && !refreshToken.isBlank()) {
+            return GoogleAccessTokenStatus.EXPIRED_REFRESHABLE;
+        }
+
+        return GoogleAccessTokenStatus.EXPIRED_REAUTH_REQUIRED;
+    }
 }

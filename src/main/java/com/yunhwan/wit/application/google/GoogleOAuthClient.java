@@ -5,4 +5,6 @@ public interface GoogleOAuthClient {
     String buildLoginUrl();
 
     GoogleOAuthToken exchangeCode(String code, String state);
+
+    GoogleAccessTokenRefreshResult refreshAccessToken(String refreshToken);
 }
