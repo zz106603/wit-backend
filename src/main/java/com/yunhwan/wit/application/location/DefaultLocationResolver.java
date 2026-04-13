@@ -10,6 +10,7 @@ import org.slf4j.LoggerFactory;
 public class DefaultLocationResolver implements LocationResolver {
 
     private static final Logger log = LoggerFactory.getLogger(DefaultLocationResolver.class);
+    private static final String LOG_PREFIX = "[LocationResolverFlow]";
     private static final double SUFFICIENT_CONFIDENCE_THRESHOLD = 0.8;
 
     private final RuleBasedLocationResolver ruleBasedLocationResolver;
@@ -39,7 +40,8 @@ public class DefaultLocationResolver implements LocationResolver {
     public ResolvedLocation resolve(String rawLocation) {
         ResolvedLocation ruleResult = ruleBasedLocationResolver.resolve(rawLocation);
         log.info(
-                "[RecommendationDebug] location rule result. rawLocation={}, status={}, resolvedBy={}, displayLocation={}",
+                "{} rawLocation={}, step=RULE, status={}, resolvedBy={}, displayLocation={}",
+                LOG_PREFIX,
                 rawLocation,
                 ruleResult.status(),
                 ruleResult.resolvedBy(),
@@ -48,7 +50,8 @@ public class DefaultLocationResolver implements LocationResolver {
 
         if (isMeaninglessInput(rawLocation)) {
             log.info(
-                    "[RecommendationDebug] location final chosen. rawLocation={}, source=FALLBACK, status={}, reason=meaningless",
+                    "{} rawLocation={}, step=RULE, status={}, result=FAILED, reason=meaningless-input",
+                    LOG_PREFIX,
                     rawLocation,
                     ruleResult.status()
             );
@@ -57,7 +60,8 @@ public class DefaultLocationResolver implements LocationResolver {
 
         if (isSufficientResolution(ruleResult, rawLocation, LocationResolvedBy.RULE)) {
             log.info(
-                    "[RecommendationDebug] location final chosen. rawLocation={}, source=RULE, status={}, displayLocation={}",
+                    "{} rawLocation={}, step=RULE, status={}, result=USED, displayLocation={}",
+                    LOG_PREFIX,
                     rawLocation,
                     ruleResult.status(),
                     ruleResult.displayLocation()
@@ -68,7 +72,8 @@ public class DefaultLocationResolver implements LocationResolver {
         ResolvedLocation googlePlacesResult = resolveByGooglePlaces(rawLocation);
         if (isAcceptedGooglePlacesResolution(googlePlacesResult, rawLocation)) {
             log.info(
-                    "[RecommendationDebug] location final chosen. rawLocation={}, source=GOOGLE_PLACES, status={}, displayLocation={}",
+                    "{} rawLocation={}, step=PLACES, status={}, result=USED, displayLocation={}",
+                    LOG_PREFIX,
                     rawLocation,
                     googlePlacesResult.status(),
                     googlePlacesResult.displayLocation()
@@ -76,17 +81,25 @@ public class DefaultLocationResolver implements LocationResolver {
             return googlePlacesResult;
         }
 
-        log.info("[RecommendationDebug] AI fallback before. rawLocation={}", rawLocation);
+        log.info(
+                "{} rawLocation={}, step=PLACES, status={}, result=INSUFFICIENT, nextStep=AI",
+                LOG_PREFIX,
+                rawLocation,
+                googlePlacesResult.status()
+        );
+        log.info("{} rawLocation={}, step=AI, action=INVOKE", LOG_PREFIX, rawLocation);
         ResolvedLocation aiResult = aiLocationFallbackResolver.resolve(rawLocation);
         log.info(
-                "[RecommendationDebug] AI fallback after. rawLocation={}, status={}, resolvedBy={}",
+                "{} rawLocation={}, step=AI, status={}, resolvedBy={}",
+                LOG_PREFIX,
                 rawLocation,
                 aiResult.status(),
                 aiResult.resolvedBy()
         );
         if (isSuccessfulAiResult(aiResult, rawLocation)) {
             log.info(
-                    "[RecommendationDebug] location final chosen. rawLocation={}, source=AI, status={}, displayLocation={}",
+                    "{} rawLocation={}, step=AI, status={}, result=USED, displayLocation={}",
+                    LOG_PREFIX,
                     rawLocation,
                     aiResult.status(),
                     aiResult.displayLocation()
@@ -95,26 +108,28 @@ public class DefaultLocationResolver implements LocationResolver {
         }
 
         log.info(
-                "[RecommendationDebug] location final chosen. rawLocation={}, source=FALLBACK, status={}, reason=all-resolvers-failed",
+                "{} rawLocation={}, step=AI, status={}, result=FAILED, reason=all-resolvers-failed",
+                LOG_PREFIX,
                 rawLocation,
-                ruleResult.status()
+                aiResult.status()
         );
         return ResolvedLocation.failed(rawLocation);
     }
 
     private ResolvedLocation resolveByGooglePlaces(String rawLocation) {
         try {
-            log.info("[RecommendationDebug] Google Places before. rawLocation={}", rawLocation);
+            log.info("{} rawLocation={}, step=PLACES, action=INVOKE", LOG_PREFIX, rawLocation);
             ResolvedLocation result = googlePlacesLocationResolver.resolve(rawLocation);
             log.info(
-                    "[RecommendationDebug] Google Places after. rawLocation={}, status={}, resolvedBy={}",
+                    "{} rawLocation={}, step=PLACES, status={}, resolvedBy={}",
+                    LOG_PREFIX,
                     rawLocation,
                     result.status(),
                     result.resolvedBy()
             );
             return result;
         } catch (RuntimeException exception) {
-            log.warn("[RecommendationDebug] Google Places failed. rawLocation={}", rawLocation, exception);
+            log.warn("{} rawLocation={}, step=PLACES, status=FAILED, reason=exception", LOG_PREFIX, rawLocation, exception);
             return ResolvedLocation.failed(rawLocation);
         }
     }
