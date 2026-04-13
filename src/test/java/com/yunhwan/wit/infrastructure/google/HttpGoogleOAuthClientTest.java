@@ -11,6 +11,7 @@ import static org.springframework.test.web.client.match.MockRestRequestMatchers.
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 import com.yunhwan.wit.application.google.GoogleOAuthToken;
+import com.yunhwan.wit.application.google.GoogleAccessTokenRefreshResult;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -92,6 +93,31 @@ class HttpGoogleOAuthClientTest {
         assertThat(token.accessToken()).isEqualTo("access-token");
         assertThat(token.refreshToken()).isEqualTo("refresh-token");
         assertThat(token.accessTokenExpiresAt()).isEqualTo(LocalDateTime.of(2026, 4, 7, 10, 0));
+        server.verify();
+    }
+
+    @Test
+    void refresh_token으로_access_token을_갱신한다() {
+        server.expect(requestTo("https://oauth2.googleapis.test/token"))
+                .andExpect(method(HttpMethod.POST))
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_FORM_URLENCODED))
+                .andExpect(content().string(containsString("refresh_token=refresh-token")))
+                .andExpect(content().string(containsString("client_id=client-id")))
+                .andExpect(content().string(containsString("client_secret=client-secret")))
+                .andExpect(content().string(containsString("grant_type=refresh_token")))
+                .andRespond(withSuccess("""
+                        {
+                          "access_token": "new-access-token",
+                          "expires_in": 7200,
+                          "token_type": "Bearer",
+                          "scope": "openid https://www.googleapis.com/auth/calendar.readonly"
+                        }
+                        """, MediaType.APPLICATION_JSON));
+
+        GoogleAccessTokenRefreshResult result = googleOAuthClient.refreshAccessToken("refresh-token");
+
+        assertThat(result.accessToken()).isEqualTo("new-access-token");
+        assertThat(result.accessTokenExpiresAt()).isEqualTo(LocalDateTime.of(2026, 4, 7, 11, 0));
         server.verify();
     }
 

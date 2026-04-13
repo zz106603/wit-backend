@@ -111,6 +111,11 @@ class GoogleIntegrationServiceTest {
                     LocalDateTime.of(2026, 4, 4, 10, 0)
             );
         }
+
+        @Override
+        public GoogleAccessTokenRefreshResult refreshAccessToken(String refreshToken) {
+            throw new UnsupportedOperationException("refreshAccessToken is not used in this test");
+        }
     }
 
     private static class FixedLoginUrlGoogleOAuthClient implements GoogleOAuthClient {
@@ -129,6 +134,11 @@ class GoogleIntegrationServiceTest {
         @Override
         public GoogleOAuthToken exchangeCode(String code, String state) {
             throw new UnsupportedOperationException("exchangeCode is not used in this test");
+        }
+
+        @Override
+        public GoogleAccessTokenRefreshResult refreshAccessToken(String refreshToken) {
+            throw new UnsupportedOperationException("refreshAccessToken is not used in this test");
         }
     }
 
