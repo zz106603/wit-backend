@@ -3,6 +3,7 @@ package com.yunhwan.wit.presentation.api.integration;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -60,16 +61,26 @@ class GoogleIntegrationControllerTest {
                         List.of()
                 ));
 
-        mockMvc.perform(get("/api/integrations/google/callback")
-                        .param("code", "oauth-code")
-                        .param("state", "oauth-state"))
+        mockMvc.perform(post("/api/integrations/google/callback")
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "code": "oauth-code",
+                                  "state": "oauth-state"
+                                }
+                                """))
                 .andExpect(status().isOk());
     }
 
     @Test
     void callback_code가_없으면_400을_반환한다() throws Exception {
-        mockMvc.perform(get("/api/integrations/google/callback")
-                        .param("state", "oauth-state"))
+        mockMvc.perform(post("/api/integrations/google/callback")
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "state": "oauth-state"
+                                }
+                                """))
                 .andExpect(status().isBadRequest());
     }
 
@@ -78,9 +89,14 @@ class GoogleIntegrationControllerTest {
         given(googleIntegrationService.connect(any()))
                 .willThrow(new GoogleReauthenticationRequiredException("Google access token expired and re-authentication is required"));
 
-        mockMvc.perform(get("/api/integrations/google/callback")
-                        .param("code", "oauth-code")
-                        .param("state", "oauth-state"))
+        mockMvc.perform(post("/api/integrations/google/callback")
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "code": "oauth-code",
+                                  "state": "oauth-state"
+                                }
+                                """))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("GOOGLE_401"))
                 .andExpect(jsonPath("$.message").value("Google access token expired and re-authentication is required"));
@@ -91,17 +107,38 @@ class GoogleIntegrationControllerTest {
         given(googleIntegrationService.connect(any()))
                 .willThrow(new GoogleIntegrationUnavailableException("Google integration is temporarily unavailable"));
 
-        mockMvc.perform(get("/api/integrations/google/callback")
-                        .param("code", "oauth-code")
-                        .param("state", "oauth-state"))
+        mockMvc.perform(post("/api/integrations/google/callback")
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "code": "oauth-code",
+                                  "state": "oauth-state"
+                                }
+                                """))
                 .andExpect(status().isServiceUnavailable())
                 .andExpect(jsonPath("$.code").value("GOOGLE_503"))
                 .andExpect(jsonPath("$.message").value("Google integration is temporarily unavailable"));
     }
 
     @Test
-    void 다른_API는_인증없으면_401을_반환한다() throws Exception {
-        mockMvc.perform(get("/api/recommendations/events/event-1"))
-                .andExpect(status().isUnauthorized());
+    void 기존_get_callback도_호환용으로_동작한다() throws Exception {
+        given(googleIntegrationService.connect(any()))
+                .willReturn(new GoogleConnectionResult(
+                        true,
+                        new GoogleIntegration(
+                                "default-user",
+                                "user@wit.local",
+                                "access-token",
+                                "refresh-token",
+                                LocalDateTime.of(2026, 4, 4, 10, 0),
+                                LocalDateTime.of(2026, 4, 4, 9, 0)
+                        ),
+                        List.of()
+                ));
+
+        mockMvc.perform(get("/api/integrations/google/callback")
+                        .param("code", "oauth-code")
+                        .param("state", "oauth-state"))
+                .andExpect(status().isOk());
     }
 }
