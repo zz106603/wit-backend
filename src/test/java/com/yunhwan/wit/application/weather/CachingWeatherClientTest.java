@@ -91,7 +91,7 @@ class CachingWeatherClientTest {
         LocalDateTime startTime = LocalDateTime.of(2026, 4, 1, 18, 0);
         LocalDateTime endTime = LocalDateTime.of(2026, 4, 1, 21, 0);
         WeatherSnapshot latestForecast = forecastSnapshot(LocalDateTime.of(2026, 4, 1, 15, 0));
-        InMemoryWeatherCache cache = new InMemoryWeatherCache();
+        CountingLatestWeatherCache cache = new CountingLatestWeatherCache();
         cache.putForecast(location, LocalDateTime.of(2026, 4, 1, 15, 0), latestForecast);
         CachingWeatherClient weatherClient = new CachingWeatherClient(new FailingWeatherClient(), cache, clock);
 
@@ -99,6 +99,7 @@ class CachingWeatherClientTest {
 
         assertThat(result.startWeather()).isEqualTo(latestForecast);
         assertThat(result.endWeather()).isEqualTo(latestForecast);
+        assertThat(cache.latestForecastLookupCount()).isEqualTo(1);
     }
 
     private ResolvedLocation resolvedLocation() {
@@ -219,7 +220,7 @@ class CachingWeatherClientTest {
         }
     }
 
-    private static final class InMemoryWeatherCache implements WeatherCache {
+    private static class InMemoryWeatherCache implements WeatherCache {
 
         private final Map<String, WeatherSnapshot> store = new HashMap<>();
 
@@ -257,6 +258,21 @@ class CachingWeatherClientTest {
         @Override
         public void putForecast(ResolvedLocation location, LocalDateTime targetTime, WeatherSnapshot weatherSnapshot) {
             store.put("forecast:" + location.lat() + ":" + location.lng() + ":" + targetTime, weatherSnapshot);
+        }
+    }
+
+    private static final class CountingLatestWeatherCache extends InMemoryWeatherCache {
+
+        private int latestForecastLookupCount;
+
+        @Override
+        public Optional<WeatherSnapshot> findLatestForecast(ResolvedLocation location) {
+            latestForecastLookupCount++;
+            return super.findLatestForecast(location);
+        }
+
+        private int latestForecastLookupCount() {
+            return latestForecastLookupCount;
         }
     }
 }

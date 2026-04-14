@@ -12,7 +12,6 @@ import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -60,11 +59,13 @@ public class RedisWeatherCache implements WeatherCache {
     @Override
     public void putCurrent(ResolvedLocation location, LocalDateTime cacheTime, WeatherSnapshot weatherSnapshot) {
         put(toKey("current", location, cacheTime), weatherSnapshot, ttlForCurrent());
+        putLatestIfNewer("current", location, weatherSnapshot, ttlForCurrent());
     }
 
     @Override
     public void putForecast(ResolvedLocation location, LocalDateTime targetTime, WeatherSnapshot weatherSnapshot) {
         put(toKey("forecast", location, targetTime), weatherSnapshot, ttlForForecast());
+        putLatestIfNewer("forecast", location, weatherSnapshot, ttlForForecast());
     }
 
     private Optional<WeatherSnapshot> find(String key) {
@@ -85,24 +86,11 @@ public class RedisWeatherCache implements WeatherCache {
     }
 
     private Optional<WeatherSnapshot> findLatest(String weatherType, ResolvedLocation location) {
-        String pattern = KEY_PREFIX + weatherType.toLowerCase(Locale.ROOT) + ":" + location.lat() + ":" + location.lng() + ":*";
-        log.info("[RecommendationDebug] Redis weather latest find before. pattern={}", pattern);
-        Set<String> keys = redisTemplate.keys(pattern);
-        if (keys == null || keys.isEmpty()) {
-            log.info("[RecommendationDebug] Redis weather latest find after. pattern={}, hit=false", pattern);
-            return Optional.empty();
-        }
-
-        String latestKey = keys.stream()
-                .max(String::compareTo)
-                .orElse(null);
-        if (latestKey == null) {
-            log.info("[RecommendationDebug] Redis weather latest find after. pattern={}, hit=false", pattern);
-            return Optional.empty();
-        }
-
-        log.info("[RecommendationDebug] Redis weather latest find after. pattern={}, hit=true, key={}", pattern, latestKey);
-        return find(latestKey);
+        String latestKey = toLatestKey(weatherType, location);
+        log.info("[RecommendationDebug] Redis weather latest find before. key={}", latestKey);
+        Optional<WeatherSnapshot> result = find(latestKey);
+        log.info("[RecommendationDebug] Redis weather latest find after. key={}, hit={}", latestKey, result.isPresent());
+        return result;
     }
 
     private void put(String key, WeatherSnapshot weatherSnapshot, Duration ttl) {
@@ -117,6 +105,26 @@ public class RedisWeatherCache implements WeatherCache {
         } catch (JsonProcessingException exception) {
             throw new IllegalStateException("Failed to serialize weather snapshot for cache", exception);
         }
+    }
+
+    private void putLatestIfNewer(
+            String weatherType,
+            ResolvedLocation location,
+            WeatherSnapshot weatherSnapshot,
+            Duration ttl
+    ) {
+        String latestKey = toLatestKey(weatherType, location);
+        Optional<WeatherSnapshot> currentLatest = find(latestKey);
+        if (currentLatest.isPresent() && currentLatest.get().targetTime().isAfter(weatherSnapshot.targetTime())) {
+            log.info(
+                    "[RecommendationDebug] Redis weather latest put skipped. key={}, existingTargetTime={}, newTargetTime={}",
+                    latestKey,
+                    currentLatest.get().targetTime(),
+                    weatherSnapshot.targetTime()
+            );
+            return;
+        }
+        put(latestKey, weatherSnapshot, ttl);
     }
 
     private String toKey(String weatherType, ResolvedLocation location, LocalDateTime targetTime) {
@@ -142,6 +150,24 @@ public class RedisWeatherCache implements WeatherCache {
                 + ":"
                 + TIME_FORMATTER.format(targetTime);
         log.info("[RecommendationDebug] Redis weather key generation end. key={}", key);
+        return key;
+    }
+
+    private String toLatestKey(String weatherType, ResolvedLocation location) {
+        Objects.requireNonNull(location, "location must not be null");
+
+        if (location.lat() == null || location.lng() == null) {
+            throw new IllegalArgumentException("location coordinates must not be null");
+        }
+
+        String key = KEY_PREFIX
+                + "latest:"
+                + weatherType.toLowerCase(Locale.ROOT)
+                + ":"
+                + location.lat()
+                + ":"
+                + location.lng();
+        log.info("[RecommendationDebug] Redis weather latest key generation end. key={}", key);
         return key;
     }
 
