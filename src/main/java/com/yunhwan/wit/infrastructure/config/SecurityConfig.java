@@ -16,10 +16,14 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         return http
                 .formLogin(AbstractHttpConfigurer::disable)
+                .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers(HttpMethod.GET, "/api/integrations/google/login-url").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/integrations/google/callback").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/integrations/google/callback").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/recommendations/home").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/recommendations/events/*").permitAll()
+                        .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 .httpBasic(withDefaults())
