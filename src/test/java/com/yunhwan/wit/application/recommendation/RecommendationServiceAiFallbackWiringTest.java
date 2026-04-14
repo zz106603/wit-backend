@@ -32,7 +32,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 class RecommendationServiceAiFallbackWiringTest extends IntegrationTestSupport {
 
@@ -42,22 +42,22 @@ class RecommendationServiceAiFallbackWiringTest extends IntegrationTestSupport {
     @Autowired
     private AiLocationFallbackResolver aiLocationFallbackResolver;
 
-    @MockBean
+    @MockitoBean
     private LocationResolutionCache locationResolutionCache;
 
-    @MockBean
+    @MockitoBean
     private RecommendationCache recommendationCache;
 
-    @MockBean
+    @MockitoBean
     private GooglePlacesLocationResolver googlePlacesLocationResolver;
 
-    @MockBean
+    @MockitoBean
     private GeminiApiClient geminiApiClient;
 
-    @MockBean
+    @MockitoBean
     private WeatherClient weatherClient;
 
-    @MockBean
+    @MockitoBean
     private CurrentLocationProvider currentLocationProvider;
 
     private CalendarEvent calendarEvent;
@@ -111,8 +111,10 @@ class RecommendationServiceAiFallbackWiringTest extends IntegrationTestSupport {
         WeatherSnapshot startWeather = snapshot("서울특별시 강남구", calendarEvent.startAt(), 21, 21, 20, WeatherType.CLOUDY);
         WeatherSnapshot endWeather = snapshot("서울특별시 강남구", calendarEvent.endAt(), 18, 18, 60, WeatherType.RAIN);
 
-        when(weatherClient.fetchCurrentWeather(currentLocation)).thenReturn(currentWeather);
-        when(weatherClient.fetchWeatherRange(
+        when(weatherClient.fetchCurrentWeatherResult(currentLocation)).thenReturn(
+                new WeatherClient.CurrentWeatherResult(currentWeather, WeatherClient.WeatherFetchSource.NORMAL)
+        );
+        when(weatherClient.fetchWeatherRangeResult(
                 argThat(location -> location != null
                         && location.status() == LocationResolutionStatus.RESOLVED
                         && location.resolvedBy() == LocationResolvedBy.AI
@@ -120,7 +122,10 @@ class RecommendationServiceAiFallbackWiringTest extends IntegrationTestSupport {
                         && "서울특별시 강남구".equals(location.displayLocation())),
                 eq(calendarEvent.startAt()),
                 eq(calendarEvent.endAt())
-        )).thenReturn(new WeatherForecastSnapshots(startWeather, endWeather));
+        )).thenReturn(new WeatherClient.WeatherRangeResult(
+                new WeatherForecastSnapshots(startWeather, endWeather),
+                WeatherClient.WeatherFetchSource.NORMAL
+        ));
 
         RecommendationResult result = recommendationService.recommend(calendarEvent);
 
