@@ -8,6 +8,7 @@ import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yunhwan.wit.application.recommendation.RecommendationResult;
+import com.yunhwan.wit.application.recommendation.RecommendationWeatherSource;
 import com.yunhwan.wit.domain.model.CalendarEvent;
 import com.yunhwan.wit.domain.model.LocationResolvedBy;
 import com.yunhwan.wit.domain.model.OutfitDecision;
@@ -129,6 +130,9 @@ class RedisRecommendationCacheTest {
                         WeatherType.RAIN
                 ),
                 false
+                ,
+                false,
+                RecommendationWeatherSource.NORMAL
         );
     }
 }

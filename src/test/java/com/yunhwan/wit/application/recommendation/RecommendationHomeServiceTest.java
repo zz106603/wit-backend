@@ -92,7 +92,9 @@ class RecommendationHomeServiceTest {
                 currentWeather,
                 startWeather,
                 endWeather,
-                false
+                false,
+                false,
+                RecommendationWeatherSource.NORMAL
         );
     }
 
