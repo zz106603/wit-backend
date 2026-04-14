@@ -6,7 +6,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -234,7 +234,9 @@ class RecommendationApiIntegrationTest extends IntegrationTestSupport {
                 .andExpect(jsonPath("$.recommendations[0].weatherFallbackApplied").value(true))
                 .andExpect(jsonPath("$.recommendations[0].weatherSource").value("SAFE_DEFAULT"))
                 .andExpect(jsonPath("$.recommendations[0].fallbackNotice").value("날씨 조회 실패로 안전 기본 추천을 반환했습니다."))
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("\"currentWeather\":null")));
+                .andExpect(jsonPath("$.recommendations[0].currentWeather").value(nullValue()))
+                .andExpect(jsonPath("$.recommendations[0].startWeather").value(nullValue()))
+                .andExpect(jsonPath("$.recommendations[0].endWeather").value(nullValue()));
     }
 
     @Test
