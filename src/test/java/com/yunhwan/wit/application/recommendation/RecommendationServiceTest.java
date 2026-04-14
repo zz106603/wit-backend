@@ -64,6 +64,8 @@ class RecommendationServiceTest {
         RecommendationResult result = recommendationService.recommend(calendarEvent);
 
         assertThat(result.weatherFallbackApplied()).isFalse();
+        assertThat(result.locationFallbackApplied()).isFalse();
+        assertThat(result.weatherSource()).isEqualTo(RecommendationWeatherSource.NORMAL);
         assertThat(result.outfitDecision()).isNotNull();
         assertThat(result.calendarEvent()).isEqualTo(calendarEvent);
         assertThat(result.resolvedLocation()).isEqualTo(eventLocation);
@@ -130,6 +132,8 @@ class RecommendationServiceTest {
         RecommendationResult result = recommendationService.recommend(calendarEvent);
 
         assertThat(result.weatherFallbackApplied()).isFalse();
+        assertThat(result.locationFallbackApplied()).isTrue();
+        assertThat(result.weatherSource()).isEqualTo(RecommendationWeatherSource.NORMAL);
         assertThat(result.resolvedLocation()).isEqualTo(currentLocation);
         assertThat(result.startWeather().regionName()).isEqualTo(currentLocation.displayLocation());
         assertThat(result.endWeather().regionName()).isEqualTo(currentLocation.displayLocation());
@@ -160,6 +164,7 @@ class RecommendationServiceTest {
         RecommendationResult result = recommendationService.recommend(calendarEvent);
 
         assertThat(result.weatherFallbackApplied()).isFalse();
+        assertThat(result.weatherSource()).isEqualTo(RecommendationWeatherSource.NORMAL);
         assertThat(result.currentWeather().regionName()).isEqualTo(eventLocation.displayLocation());
     }
 
@@ -185,6 +190,8 @@ class RecommendationServiceTest {
         OutfitDecision decision = result.outfitDecision();
 
         assertThat(result.weatherFallbackApplied()).isTrue();
+        assertThat(result.locationFallbackApplied()).isFalse();
+        assertThat(result.weatherSource()).isEqualTo(RecommendationWeatherSource.SAFE_DEFAULT);
         assertThat(result.currentWeather()).isNull();
         assertThat(result.startWeather()).isNull();
         assertThat(result.endWeather()).isNull();
@@ -228,6 +235,7 @@ class RecommendationServiceTest {
         RecommendationResult result = recommendationService.recommend(calendarEvent);
 
         assertThat(result.weatherFallbackApplied()).isFalse();
+        assertThat(result.weatherSource()).isEqualTo(RecommendationWeatherSource.CACHE);
         assertThat(result.currentWeather()).isNotNull();
         assertThat(result.startWeather()).isNotNull();
         assertThat(result.endWeather()).isNotNull();
@@ -262,6 +270,7 @@ class RecommendationServiceTest {
 
         assertThat(result.resolvedLocation()).isEqualTo(currentLocation);
         assertThat(result.weatherFallbackApplied()).isFalse();
+        assertThat(result.locationFallbackApplied()).isTrue();
     }
 
     @Test
@@ -285,6 +294,7 @@ class RecommendationServiceTest {
         RecommendationResult result = recommendationService.recommend(calendarEvent);
 
         assertThat(result.weatherFallbackApplied()).isTrue();
+        assertThat(result.weatherSource()).isEqualTo(RecommendationWeatherSource.SAFE_DEFAULT);
         assertThat(result.currentWeather()).isNull();
         assertThat(result.startWeather()).isNull();
         assertThat(result.endWeather()).isNull();
@@ -337,7 +347,9 @@ class RecommendationServiceTest {
                 snapshot(currentLocation(), currentTime, 20, 20, 10, WeatherType.CLEAR),
                 snapshot(eventLocation(), calendarEvent.startAt(), 19, 19, 20, WeatherType.CLOUDY),
                 snapshot(eventLocation(), calendarEvent.endAt(), 18, 18, 40, WeatherType.CLOUDY),
-                false
+                false,
+                false,
+                RecommendationWeatherSource.NORMAL
         );
         InMemoryRecommendationCache recommendationCache = new InMemoryRecommendationCache();
         recommendationCache.put(calendarEvent, LocalDateTime.of(2026, 4, 2, 9, 0), cachedResult);

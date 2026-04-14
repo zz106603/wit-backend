@@ -12,6 +12,8 @@ public record RecommendationResult(
         WeatherSnapshot currentWeather,
         WeatherSnapshot startWeather,
         WeatherSnapshot endWeather,
-        boolean weatherFallbackApplied
+        boolean weatherFallbackApplied,
+        boolean locationFallbackApplied,
+        RecommendationWeatherSource weatherSource
 ) {
 }

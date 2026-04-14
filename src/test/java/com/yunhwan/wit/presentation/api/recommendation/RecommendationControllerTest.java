@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.yunhwan.wit.application.recommendation.RecommendationHomeService;
 import com.yunhwan.wit.application.recommendation.RecommendationResult;
+import com.yunhwan.wit.application.recommendation.RecommendationWeatherSource;
 import com.yunhwan.wit.domain.model.CalendarEvent;
 import com.yunhwan.wit.domain.model.LocationResolvedBy;
 import com.yunhwan.wit.domain.model.OutfitDecision;
@@ -51,6 +52,8 @@ class RecommendationControllerTest {
                 .andExpect(jsonPath("$.recommendations[0].resolvedLocation.displayLocation")
                         .value("서울특별시 강남구 테헤란로 1"))
                 .andExpect(jsonPath("$.recommendations[0].resolvedLocation.resolvedBy").value("GOOGLE_PLACES"))
+                .andExpect(jsonPath("$.recommendations[0].locationFallbackApplied").value(false))
+                .andExpect(jsonPath("$.recommendations[0].weatherSource").value("NORMAL"))
                 .andExpect(jsonPath("$.recommendations[0].needUmbrella").value(true))
                 .andExpect(jsonPath("$.recommendations[0].recommendedOutfitText").value("긴팔 + 가벼운 겉옷"))
                 .andExpect(jsonPath("$.recommendations[0].aiSummary").value("종료 시점 비 예보가 있어 우산과 긴팔 + 가벼운 겉옷이 필요합니다."))
@@ -66,9 +69,22 @@ class RecommendationControllerTest {
         mockMvc.perform(get("/api/recommendations/home"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.recommendations[0].weatherFallbackApplied").value(true))
+                .andExpect(jsonPath("$.recommendations[0].locationFallbackApplied").value(true))
+                .andExpect(jsonPath("$.recommendations[0].weatherSource").value("SAFE_DEFAULT"))
                 .andExpect(jsonPath("$.recommendations[0].currentWeather").value(nullValue()))
                 .andExpect(jsonPath("$.recommendations[0].startWeather").value(nullValue()))
                 .andExpect(jsonPath("$.recommendations[0].endWeather").value(nullValue()));
+    }
+
+    @Test
+    void cache기반_추천응답은_weather_source를_CACHE로_반환한다() throws Exception {
+        given(recommendationHomeService.getHomeRecommendations())
+                .willReturn(List.of(cachedRecommendationResult()));
+
+        mockMvc.perform(get("/api/recommendations/home"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.recommendations[0].weatherFallbackApplied").value(false))
+                .andExpect(jsonPath("$.recommendations[0].weatherSource").value("CACHE"));
     }
 
     private RecommendationResult recommendationResult() {
@@ -83,7 +99,9 @@ class RecommendationControllerTest {
                 weatherSnapshot(location, LocalDateTime.of(2026, 4, 7, 9, 0), 20, 20, 10, WeatherType.CLEAR),
                 weatherSnapshot(location, event.startAt(), 19, 18, 30, WeatherType.CLOUDY),
                 weatherSnapshot(location, event.endAt(), 16, 14, 70, WeatherType.RAIN),
-                false
+                false,
+                false,
+                RecommendationWeatherSource.NORMAL
         );
     }
 
@@ -96,7 +114,25 @@ class RecommendationControllerTest {
                 null,
                 null,
                 null,
-                true
+                true,
+                true,
+                RecommendationWeatherSource.SAFE_DEFAULT
+        );
+    }
+
+    private RecommendationResult cachedRecommendationResult() {
+        CalendarEvent event = calendarEvent();
+        ResolvedLocation location = location(event);
+        return new RecommendationResult(
+                decision(),
+                event,
+                location,
+                weatherSnapshot(location, LocalDateTime.of(2026, 4, 7, 9, 0), 20, 20, 10, WeatherType.CLEAR),
+                weatherSnapshot(location, event.startAt(), 19, 18, 30, WeatherType.CLOUDY),
+                weatherSnapshot(location, event.endAt(), 16, 14, 70, WeatherType.RAIN),
+                false,
+                false,
+                RecommendationWeatherSource.CACHE
         );
     }
 

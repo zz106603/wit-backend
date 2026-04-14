@@ -30,17 +30,22 @@ public class CachingWeatherClient implements WeatherClient {
 
     @Override
     public WeatherSnapshot fetchCurrentWeather(ResolvedLocation location) {
+        return fetchCurrentWeatherResult(location).snapshot();
+    }
+
+    @Override
+    public CurrentWeatherResult fetchCurrentWeatherResult(ResolvedLocation location) {
         LocalDateTime cacheTime = LocalDateTime.now(clock).truncatedTo(ChronoUnit.HOURS);
         WeatherSnapshot cached = readCurrentFromCache(location, cacheTime);
         if (cached != null) {
-            return cached;
+            return new CurrentWeatherResult(cached, WeatherFetchSource.CACHE);
         }
 
         try {
-            WeatherSnapshot weatherSnapshot = delegate.fetchCurrentWeather(location);
-            writeCurrentToCache(location, cacheTime, weatherSnapshot);
+            CurrentWeatherResult weatherResult = delegate.fetchCurrentWeatherResult(location);
+            writeCurrentToCache(location, cacheTime, weatherResult.snapshot());
             log.info("{} weather API success. type=CURRENT, location={}", LOG_PREFIX, location.displayLocation());
-            return weatherSnapshot;
+            return weatherResult;
         } catch (RuntimeException exception) {
             log.warn("{} weather API failed. type=CURRENT, location={}", LOG_PREFIX, location.displayLocation(), exception);
             WeatherSnapshot latestCached = readLatestCurrentFromCache(location);
@@ -50,7 +55,7 @@ public class CachingWeatherClient implements WeatherClient {
                         LOG_PREFIX,
                         location.displayLocation()
                 );
-                return latestCached;
+                return new CurrentWeatherResult(latestCached, WeatherFetchSource.CACHE);
             }
             throw exception;
         }
@@ -101,17 +106,29 @@ public class CachingWeatherClient implements WeatherClient {
             LocalDateTime startTime,
             LocalDateTime endTime
     ) {
+        return fetchWeatherRangeResult(location, startTime, endTime).snapshots();
+    }
+
+    @Override
+    public WeatherRangeResult fetchWeatherRangeResult(
+            ResolvedLocation location,
+            LocalDateTime startTime,
+            LocalDateTime endTime
+    ) {
         WeatherSnapshot cachedStart = readForecastFromCache(location, startTime);
         WeatherSnapshot cachedEnd = readForecastFromCache(location, endTime);
         if (cachedStart != null && cachedEnd != null) {
-            return new WeatherForecastSnapshots(cachedStart, cachedEnd);
+            return new WeatherRangeResult(
+                    new WeatherForecastSnapshots(cachedStart, cachedEnd),
+                    WeatherFetchSource.CACHE
+            );
         }
 
         if (cachedStart == null && cachedEnd == null) {
             try {
-                WeatherForecastSnapshots snapshots = delegate.fetchWeatherRange(location, startTime, endTime);
-                writeForecastToCache(location, startTime, snapshots.startWeather());
-                writeForecastToCache(location, endTime, snapshots.endWeather());
+                WeatherRangeResult weatherRangeResult = delegate.fetchWeatherRangeResult(location, startTime, endTime);
+                writeForecastToCache(location, startTime, weatherRangeResult.snapshots().startWeather());
+                writeForecastToCache(location, endTime, weatherRangeResult.snapshots().endWeather());
                 log.info(
                         "{} weather API success. type=FORECAST_RANGE, location={}, startTime={}, endTime={}",
                         LOG_PREFIX,
@@ -119,7 +136,7 @@ public class CachingWeatherClient implements WeatherClient {
                         startTime,
                         endTime
                 );
-                return snapshots;
+                return weatherRangeResult;
             } catch (RuntimeException exception) {
                 log.warn(
                         "{} weather API failed. type=FORECAST_RANGE, location={}, startTime={}, endTime={}",
@@ -139,7 +156,10 @@ public class CachingWeatherClient implements WeatherClient {
                             startTime,
                             endTime
                     );
-                    return new WeatherForecastSnapshots(latestStart, latestEnd);
+                    return new WeatherRangeResult(
+                            new WeatherForecastSnapshots(latestStart, latestEnd),
+                            WeatherFetchSource.CACHE
+                    );
                 }
                 throw exception;
             }
@@ -147,7 +167,10 @@ public class CachingWeatherClient implements WeatherClient {
 
         WeatherSnapshot startWeather = cachedStart != null ? cachedStart : fetchWeatherAt(location, startTime);
         WeatherSnapshot endWeather = cachedEnd != null ? cachedEnd : fetchWeatherAt(location, endTime);
-        return new WeatherForecastSnapshots(startWeather, endWeather);
+        return new WeatherRangeResult(
+                new WeatherForecastSnapshots(startWeather, endWeather),
+                WeatherFetchSource.CACHE
+        );
     }
 
     private WeatherSnapshot readCurrentFromCache(ResolvedLocation location, LocalDateTime cacheTime) {
