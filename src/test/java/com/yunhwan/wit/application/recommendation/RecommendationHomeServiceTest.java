@@ -1,9 +1,11 @@
 package com.yunhwan.wit.application.recommendation;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
 
+import com.yunhwan.wit.application.exception.WitException;
 import com.yunhwan.wit.application.google.GoogleIntegrationService;
 import com.yunhwan.wit.domain.model.CalendarEvent;
 import com.yunhwan.wit.domain.model.LocationResolvedBy;
@@ -49,6 +51,27 @@ class RecommendationHomeServiceTest {
         List<RecommendationResult> results = homeService.getHomeRecommendations();
 
         assertThat(results).containsExactly(recommendationResult);
+    }
+
+    @Test
+    void eventId로_단건_상세_추천을_조회한다() {
+        CalendarEvent event = calendarEvent("event-1");
+        RecommendationResult recommendationResult = recommendationResult(event);
+        given(googleIntegrationService.getUpcomingEvents()).willReturn(List.of(event));
+        given(recommendationService.recommend(event)).willReturn(recommendationResult);
+
+        RecommendationResult result = homeService.getEventRecommendation("event-1");
+
+        assertThat(result).isEqualTo(recommendationResult);
+    }
+
+    @Test
+    void eventId가_없으면_404_예외를_반환한다() {
+        given(googleIntegrationService.getUpcomingEvents()).willReturn(List.of(calendarEvent("event-1")));
+
+        assertThatThrownBy(() -> homeService.getEventRecommendation("event-404"))
+                .isInstanceOf(WitException.class)
+                .hasMessage("eventId에 해당하는 추천 대상이 없습니다. eventId=event-404");
     }
 
     private CalendarEvent calendarEvent(String eventId) {

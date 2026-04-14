@@ -9,6 +9,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.yunhwan.wit.application.recommendation.RecommendationHomeService;
 import com.yunhwan.wit.application.recommendation.RecommendationResult;
 import com.yunhwan.wit.application.recommendation.RecommendationWeatherSource;
+import com.yunhwan.wit.application.exception.ErrorCode;
+import com.yunhwan.wit.application.exception.WitException;
 import com.yunhwan.wit.domain.model.CalendarEvent;
 import com.yunhwan.wit.domain.model.LocationResolvedBy;
 import com.yunhwan.wit.domain.model.OutfitDecision;
@@ -48,15 +50,19 @@ class RecommendationControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.recommendations[0].eventId").value("event-1"))
                 .andExpect(jsonPath("$.recommendations[0].title").value("강남 회식"))
+                .andExpect(jsonPath("$.recommendations[0].startAt").value("2026-04-07T18:00:00"))
+                .andExpect(jsonPath("$.recommendations[0].endAt").value("2026-04-07T21:00:00"))
+                .andExpect(jsonPath("$.recommendations[0].location").value("서울특별시 강남구 테헤란로 1"))
                 .andExpect(jsonPath("$.recommendations[0].rawLocation").value("강남 목구멍"))
-                .andExpect(jsonPath("$.recommendations[0].resolvedLocation.displayLocation")
+                .andExpect(jsonPath("$.recommendations[0].locationResolution.displayLocation")
                         .value("서울특별시 강남구 테헤란로 1"))
-                .andExpect(jsonPath("$.recommendations[0].resolvedLocation.resolvedBy").value("GOOGLE_PLACES"))
+                .andExpect(jsonPath("$.recommendations[0].locationResolution.resolvedBy").value("GOOGLE_PLACES"))
                 .andExpect(jsonPath("$.recommendations[0].locationFallbackApplied").value(false))
                 .andExpect(jsonPath("$.recommendations[0].weatherSource").value("NORMAL"))
                 .andExpect(jsonPath("$.recommendations[0].needUmbrella").value(true))
                 .andExpect(jsonPath("$.recommendations[0].recommendedOutfitText").value("긴팔 + 가벼운 겉옷"))
-                .andExpect(jsonPath("$.recommendations[0].aiSummary").value("종료 시점 비 예보가 있어 우산과 긴팔 + 가벼운 겉옷이 필요합니다."))
+                .andExpect(jsonPath("$.recommendations[0].summary").value("종료 시점 비 예보가 있어 우산과 긴팔 + 가벼운 겉옷이 필요합니다."))
+                .andExpect(jsonPath("$.recommendations[0].fallbackNotice").value(nullValue()))
                 .andExpect(jsonPath("$.recommendations[0].weatherFallbackApplied").value(false))
                 .andExpect(jsonPath("$.recommendations[0].endWeather.weatherType").value("RAIN"));
     }
@@ -71,6 +77,7 @@ class RecommendationControllerTest {
                 .andExpect(jsonPath("$.recommendations[0].weatherFallbackApplied").value(true))
                 .andExpect(jsonPath("$.recommendations[0].locationFallbackApplied").value(true))
                 .andExpect(jsonPath("$.recommendations[0].weatherSource").value("SAFE_DEFAULT"))
+                .andExpect(jsonPath("$.recommendations[0].fallbackNotice").value("날씨 조회 실패로 안전 기본 추천을 반환했습니다."))
                 .andExpect(jsonPath("$.recommendations[0].currentWeather").value(nullValue()))
                 .andExpect(jsonPath("$.recommendations[0].startWeather").value(nullValue()))
                 .andExpect(jsonPath("$.recommendations[0].endWeather").value(nullValue()));
@@ -84,7 +91,36 @@ class RecommendationControllerTest {
         mockMvc.perform(get("/api/recommendations/home"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.recommendations[0].weatherFallbackApplied").value(false))
-                .andExpect(jsonPath("$.recommendations[0].weatherSource").value("CACHE"));
+                .andExpect(jsonPath("$.recommendations[0].weatherSource").value("CACHE"))
+                .andExpect(jsonPath("$.recommendations[0].fallbackNotice").value("실시간 날씨 대신 최신 캐시 데이터를 사용했습니다."));
+    }
+
+    @Test
+    void 이벤트_상세_추천_응답은_단건_상세를_반환한다() throws Exception {
+        given(recommendationHomeService.getEventRecommendation("event-1"))
+                .willReturn(recommendationResult());
+
+        mockMvc.perform(get("/api/recommendations/events/event-1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.eventId").value("event-1"))
+                .andExpect(jsonPath("$.title").value("강남 회식"))
+                .andExpect(jsonPath("$.location").value("서울특별시 강남구 테헤란로 1"))
+                .andExpect(jsonPath("$.summary").value("종료 시점 비 예보가 있어 우산과 긴팔 + 가벼운 겉옷이 필요합니다."))
+                .andExpect(jsonPath("$.endWeather.weatherType").value("RAIN"));
+    }
+
+    @Test
+    void 이벤트_상세_추천_대상이_없으면_404를_반환한다() throws Exception {
+        given(recommendationHomeService.getEventRecommendation("event-404"))
+                .willThrow(new WitException(
+                        ErrorCode.RECOMMENDATION_EVENT_NOT_FOUND,
+                        "eventId에 해당하는 추천 대상이 없습니다. eventId=event-404"
+                ));
+
+        mockMvc.perform(get("/api/recommendations/events/event-404"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("RECOMMENDATION_404"))
+                .andExpect(jsonPath("$.message").value("eventId에 해당하는 추천 대상이 없습니다. eventId=event-404"));
     }
 
     private RecommendationResult recommendationResult() {

@@ -1,5 +1,7 @@
 package com.yunhwan.wit.application.recommendation;
 
+import com.yunhwan.wit.application.exception.ErrorCode;
+import com.yunhwan.wit.application.exception.WitException;
 import com.yunhwan.wit.application.google.GoogleIntegrationService;
 import com.yunhwan.wit.domain.model.CalendarEvent;
 import java.util.List;
@@ -37,6 +39,20 @@ public class RecommendationHomeService {
                 .map(this::recommendSafely)
                 .flatMap(Optional::stream)
                 .toList();
+    }
+
+    public RecommendationResult getEventRecommendation(String eventId) {
+        Objects.requireNonNull(eventId, "eventId must not be null");
+
+        CalendarEvent calendarEvent = googleIntegrationService.getUpcomingEvents().stream()
+                .filter(event -> eventId.equals(event.eventId()))
+                .findFirst()
+                .orElseThrow(() -> new WitException(
+                        ErrorCode.RECOMMENDATION_EVENT_NOT_FOUND,
+                        "eventId에 해당하는 추천 대상이 없습니다. eventId=" + eventId
+                ));
+
+        return recommendationService.recommend(calendarEvent);
     }
 
     private Optional<RecommendationResult> recommendSafely(CalendarEvent calendarEvent) {
