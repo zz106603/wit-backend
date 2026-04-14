@@ -2,6 +2,8 @@ package com.yunhwan.wit.presentation.api;
 
 import com.yunhwan.wit.application.exception.ErrorCode;
 import com.yunhwan.wit.application.exception.WitException;
+import com.yunhwan.wit.application.google.GoogleIntegrationUnavailableException;
+import com.yunhwan.wit.application.google.GoogleReauthenticationRequiredException;
 import jakarta.validation.ConstraintViolationException;
 import java.util.List;
 import org.slf4j.Logger;
@@ -23,6 +25,22 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiErrorResponse> handleWitException(WitException exception) {
         ErrorCode errorCode = exception.getErrorCode();
         return response(errorCode, exception.getMessage());
+    }
+
+    @ExceptionHandler(GoogleReauthenticationRequiredException.class)
+    public ResponseEntity<ApiErrorResponse> handleGoogleReauthenticationRequired(
+            GoogleReauthenticationRequiredException exception
+    ) {
+        log.info("Google re-authentication required: {}", exception.getMessage());
+        return response(ErrorCode.GOOGLE_REAUTH_REQUIRED, exception.getMessage());
+    }
+
+    @ExceptionHandler(GoogleIntegrationUnavailableException.class)
+    public ResponseEntity<ApiErrorResponse> handleGoogleIntegrationUnavailable(
+            GoogleIntegrationUnavailableException exception
+    ) {
+        log.warn("Google integration unavailable: {}", exception.getMessage());
+        return response(ErrorCode.GOOGLE_INTEGRATION_UNAVAILABLE, exception.getMessage());
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
