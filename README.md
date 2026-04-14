@@ -211,28 +211,15 @@ flowchart LR
 
 ## 로컬 실행
 
-## Quick Start
-
-```bash
-# start Redis
-docker-compose up -d redis
-
-# run application
-./gradlew bootRun
-```
-
-→ `http://localhost:8080/swagger-ui/index.html` 에서 바로 확인할 수 있습니다.
-
-사전 요구사항:
-
+### 사전 요구사항
 - Java 21
 - Redis
 
-실행:
+### 실행 방법 (Quick Start)
+1. Redis 실행: `docker-compose up -d redis`
+2. 애플리케이션 실행: `./gradlew bootRun`
 
-```bash
-./gradlew bootRun
-```
+→ `http://localhost:8080/swagger-ui/index.html` 에서 바로 확인할 수 있습니다.
 
 기본 확인 경로:
 
