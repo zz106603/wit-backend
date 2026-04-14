@@ -146,9 +146,8 @@ public class CachingWeatherClient implements WeatherClient {
                         endTime,
                         exception
                 );
-                WeatherSnapshot latestStart = readLatestForecastFromCache(location);
-                WeatherSnapshot latestEnd = readLatestForecastFromCache(location);
-                if (latestStart != null && latestEnd != null) {
+                WeatherSnapshot latestForecast = readLatestForecastFromCache(location);
+                if (latestForecast != null) {
                     log.info(
                             "{} weather fallback used. source=CACHE, type=FORECAST_RANGE, location={}, startTime={}, endTime={}",
                             LOG_PREFIX,
@@ -157,7 +156,7 @@ public class CachingWeatherClient implements WeatherClient {
                             endTime
                     );
                     return new WeatherRangeResult(
-                            new WeatherForecastSnapshots(latestStart, latestEnd),
+                            new WeatherForecastSnapshots(latestForecast, latestForecast),
                             WeatherFetchSource.CACHE
                     );
                 }

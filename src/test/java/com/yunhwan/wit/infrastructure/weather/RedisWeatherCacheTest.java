@@ -13,7 +13,6 @@ import com.yunhwan.wit.domain.model.WeatherSnapshot;
 import com.yunhwan.wit.domain.model.WeatherType;
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
@@ -26,10 +25,12 @@ class RedisWeatherCacheTest {
         @SuppressWarnings("unchecked")
         ValueOperations<String, String> valueOperations = mock(ValueOperations.class);
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.get("weather:latest:current:37.4979:127.0276")).thenReturn(null);
+        ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
 
         RedisWeatherCache weatherCache = new RedisWeatherCache(
                 redisTemplate,
-                new ObjectMapper().findAndRegisterModules(),
+                objectMapper,
                 new WeatherCacheProperties(Duration.ofHours(1))
         );
 
@@ -37,14 +38,20 @@ class RedisWeatherCacheTest {
 
         verify(valueOperations).set(
                 eq("weather:current:37.4979:127.0276:2026-04-01T09:00:00"),
-                eq(new ObjectMapper().findAndRegisterModules().writeValueAsString(snapshot())),
+                eq(objectMapper.writeValueAsString(snapshot())),
+                eq(Duration.ofHours(1))
+        );
+        verify(valueOperations).set(
+                eq("weather:latest:current:37.4979:127.0276"),
+                eq(objectMapper.writeValueAsString(snapshot())),
                 eq(Duration.ofHours(1))
         );
     }
 
     @Test
     void 예보캐시_조회키는_좌표와_요청시각으로_구성한다() throws Exception {
-        String serialized = new ObjectMapper().findAndRegisterModules().writeValueAsString(snapshot());
+        ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
+        String serialized = objectMapper.writeValueAsString(snapshot());
         StringRedisTemplate redisTemplate = mock(StringRedisTemplate.class);
         @SuppressWarnings("unchecked")
         ValueOperations<String, String> valueOperations = mock(ValueOperations.class);
@@ -53,7 +60,7 @@ class RedisWeatherCacheTest {
 
         RedisWeatherCache weatherCache = new RedisWeatherCache(
                 redisTemplate,
-                new ObjectMapper().findAndRegisterModules(),
+                objectMapper,
                 new WeatherCacheProperties(Duration.ofHours(1))
         );
 
@@ -66,22 +73,18 @@ class RedisWeatherCacheTest {
     }
 
     @Test
-    void latest_forecast는_가장_최근_캐시를_선택한다() throws Exception {
-        String serialized = new ObjectMapper().findAndRegisterModules().writeValueAsString(snapshot());
+    void latest_forecast는_고정_latest_key로_조회한다() throws Exception {
+        ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
+        String serialized = objectMapper.writeValueAsString(snapshot());
         StringRedisTemplate redisTemplate = mock(StringRedisTemplate.class);
         @SuppressWarnings("unchecked")
         ValueOperations<String, String> valueOperations = mock(ValueOperations.class);
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
-        when(redisTemplate.keys("weather:forecast:37.4979:127.0276:*"))
-                .thenReturn(Set.of(
-                        "weather:forecast:37.4979:127.0276:2026-04-01T15:00:00",
-                        "weather:forecast:37.4979:127.0276:2026-04-01T18:00:00"
-                ));
-        when(valueOperations.get("weather:forecast:37.4979:127.0276:2026-04-01T18:00:00")).thenReturn(serialized);
+        when(valueOperations.get("weather:latest:forecast:37.4979:127.0276")).thenReturn(serialized);
 
         RedisWeatherCache weatherCache = new RedisWeatherCache(
                 redisTemplate,
-                new ObjectMapper().findAndRegisterModules(),
+                objectMapper,
                 new WeatherCacheProperties(Duration.ofHours(1))
         );
 
