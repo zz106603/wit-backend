@@ -4,6 +4,7 @@ import org.springframework.http.HttpStatus;
 
 public enum ErrorCode {
     INVALID_REQUEST(HttpStatus.BAD_REQUEST, "COMMON_400", "잘못된 요청입니다."),
+    RECOMMENDATION_EVENT_NOT_FOUND(HttpStatus.NOT_FOUND, "RECOMMENDATION_404", "추천 대상을 찾을 수 없습니다."),
     GOOGLE_REAUTH_REQUIRED(HttpStatus.UNAUTHORIZED, "GOOGLE_401", "Google 재연동이 필요합니다."),
     GOOGLE_INTEGRATION_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "GOOGLE_503", "Google 연동 중 오류가 발생했습니다."),
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "COMMON_500", "서버 내부 오류가 발생했습니다.");
