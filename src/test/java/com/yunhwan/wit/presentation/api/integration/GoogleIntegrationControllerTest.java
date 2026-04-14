@@ -3,12 +3,15 @@ package com.yunhwan.wit.presentation.api.integration;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.yunhwan.wit.application.google.GoogleConnectionResult;
+import com.yunhwan.wit.application.google.GoogleIntegrationUnavailableException;
 import com.yunhwan.wit.application.google.GoogleIntegration;
 import com.yunhwan.wit.application.google.GoogleIntegrationService;
 import com.yunhwan.wit.application.google.GoogleLoginUrlResult;
+import com.yunhwan.wit.application.google.GoogleReauthenticationRequiredException;
 import com.yunhwan.wit.infrastructure.config.SecurityConfig;
 import com.yunhwan.wit.presentation.api.GlobalExceptionHandler;
 import java.time.LocalDateTime;
@@ -68,6 +71,32 @@ class GoogleIntegrationControllerTest {
         mockMvc.perform(get("/api/integrations/google/callback")
                         .param("state", "oauth-state"))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void 재인증이_필요하면_401과_전용_error_code를_반환한다() throws Exception {
+        given(googleIntegrationService.connect(any()))
+                .willThrow(new GoogleReauthenticationRequiredException("Google access token expired and re-authentication is required"));
+
+        mockMvc.perform(get("/api/integrations/google/callback")
+                        .param("code", "oauth-code")
+                        .param("state", "oauth-state"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("GOOGLE_401"))
+                .andExpect(jsonPath("$.message").value("Google access token expired and re-authentication is required"));
+    }
+
+    @Test
+    void 외부_연동_장애면_503과_전용_error_code를_반환한다() throws Exception {
+        given(googleIntegrationService.connect(any()))
+                .willThrow(new GoogleIntegrationUnavailableException("Google integration is temporarily unavailable"));
+
+        mockMvc.perform(get("/api/integrations/google/callback")
+                        .param("code", "oauth-code")
+                        .param("state", "oauth-state"))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.code").value("GOOGLE_503"))
+                .andExpect(jsonPath("$.message").value("Google integration is temporarily unavailable"));
     }
 
     @Test
