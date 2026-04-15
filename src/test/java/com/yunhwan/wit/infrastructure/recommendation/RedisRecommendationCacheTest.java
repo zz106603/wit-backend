@@ -105,6 +105,7 @@ class RedisRecommendationCacheTest {
                         1.0,
                         LocationResolvedBy.RULE
                 ),
+                null,
                 new WeatherSnapshot(
                         "서울특별시 강남구",
                         LocalDateTime.of(2026, 4, 2, 9, 0),

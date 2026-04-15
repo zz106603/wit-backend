@@ -100,6 +100,7 @@ public class RecommendationService {
                     fallbackDecision,
                     calendarEvent,
                     resolvedLocation,
+                    locationResolutionOutcome.originalLocationResolution(),
                     null,
                     null,
                     null,
@@ -137,6 +138,7 @@ public class RecommendationService {
                 outfitDecision,
                 calendarEvent,
                 resolvedLocation,
+                locationResolutionOutcome.originalLocationResolution(),
                 currentWeather,
                 startWeather,
                 endWeather,
@@ -203,10 +205,10 @@ public class RecommendationService {
             ResolvedLocation resolvedLocation = locationResolver.resolve(calendarEvent.rawLocation());
             if (resolvedLocation.status() == LocationResolutionStatus.FAILED) {
                 log.info(
-                        "[RecommendationDebug] location resolve after. eventId={}, status=FAILED, fallback=current",
-                        calendarEvent.eventId()
+                    "[RecommendationDebug] location resolve after. eventId={}, status=FAILED, fallback=current",
+                    calendarEvent.eventId()
                 );
-                return new LocationResolutionOutcome(currentLocation, true);
+                return new LocationResolutionOutcome(currentLocation, resolvedLocation, true);
             }
             log.info(
                     "[RecommendationDebug] location resolve after. eventId={}, status={}, resolvedBy={}, displayLocation={}",
@@ -215,14 +217,18 @@ public class RecommendationService {
                     resolvedLocation.resolvedBy(),
                     resolvedLocation.displayLocation()
             );
-            return new LocationResolutionOutcome(resolvedLocation, false);
+            return new LocationResolutionOutcome(resolvedLocation, null, false);
         } catch (RuntimeException exception) {
             log.warn(
                     "[RecommendationDebug] location resolve failed. eventId={}, fallback=current",
                     calendarEvent.eventId(),
                     exception
             );
-            return new LocationResolutionOutcome(currentLocation, true);
+            return new LocationResolutionOutcome(
+                    currentLocation,
+                    ResolvedLocation.failed(calendarEvent.rawLocation()),
+                    true
+            );
         }
     }
 
@@ -362,6 +368,7 @@ public class RecommendationService {
 
     private record LocationResolutionOutcome(
             ResolvedLocation location,
+            ResolvedLocation originalLocationResolution,
             boolean fallbackApplied
     ) {
     }

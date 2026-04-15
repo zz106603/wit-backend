@@ -173,6 +173,8 @@ class RecommendationApiIntegrationTest extends IntegrationTestSupport {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.recommendations[0].locationFallbackApplied").value(true))
                 .andExpect(jsonPath("$.recommendations[0].location").value("서울특별시 강남구"))
+                .andExpect(jsonPath("$.recommendations[0].originalLocationResolution.status").value("FAILED"))
+                .andExpect(jsonPath("$.recommendations[0].originalLocationResolution.rawLocation").value("회사 회식"))
                 .andExpect(jsonPath("$.recommendations[0].weatherSource").value("NORMAL"));
     }
 
