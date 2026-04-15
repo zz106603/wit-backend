@@ -284,6 +284,9 @@ Google Places 평가 규칙:
 
 ## 7.2 Summary 생성
 
+- summary는 우산/옷차림 등 recommendation content만 설명한다
+- fallback/degraded-state는 summary가 아니라 별도 응답 필드(`fallbackNotice`, fallback flags)로 명시한다
+
 ### 입력
 
 - 날씨 정보

@@ -67,6 +67,12 @@
 
 ## Failure Handling
 
+### Summary vs Fallback Notice
+- `summary`는 우산/옷차림 등 recommendation content만 설명한다
+- fallback/degraded-state 설명은 `fallbackNotice`와 구조화 상태 필드(`locationFallbackApplied`, `weatherFallbackApplied`, `weatherSource`)가 담당한다
+- `summary`는 fallback/degraded-state를 전달하는 주 채널로 사용하지 않는다
+- 클라이언트는 fallback 여부를 `summary`가 아니라 구조화 필드와 `fallbackNotice`로 판단해야 한다
+
 ### Location Failure
 - FAILED면 current location 기준으로 fallback
 - 이 경우 응답에서 `locationFallbackApplied=true`로 명시한다

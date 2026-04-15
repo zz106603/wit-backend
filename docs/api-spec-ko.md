@@ -9,6 +9,7 @@
 
 - 추천 성공 응답의 사용자용 핵심 필드는 `eventId`, `title`, `startAt`, `endAt`, `location`, `needUmbrella`, `recommendedOutfitText`, `summary`다.
 - `summary`는 현재 구현의 `OutfitDecision.aiSummary`를 외부 API 필드명으로 노출한 값이다.
+- `summary`는 우산/옷차림 등 추천 내용만 전달하는 사용자용 문구다.
 - `location`은 현재 구현의 해석 결과 표시 위치(`resolvedLocation.displayLocation`)다.
 - `locationFallbackApplied=true`면 일정 위치 해석에 실패해 현재 위치 기준으로 추천한 경우다.
 - 이 경우 해당 응답은 목적지 기반 추천이 아니며, `location`도 현재 위치 표시값이다.
@@ -16,6 +17,8 @@
 - `weatherFallbackApplied=true`면 날씨 조회 실패로 safe default 추천을 반환한 경우다.
 - `weatherSource=CACHE`면 실시간 대신 최신 캐시 날씨를 사용한 경우다.
 - `fallbackNotice`는 fallback 의미를 바로 이해할 수 있게 추가한 사용자용 안내 문구다.
+- fallback/degraded-state 설명의 1차 채널은 `fallbackNotice`, `locationFallbackApplied`, `weatherFallbackApplied`, `weatherSource` 같은 구조화 필드다.
+- `summary`는 fallback/degraded-state를 주된 방식으로 설명하지 않으며, fallback 여부 판단은 반드시 구조화 필드와 `fallbackNotice`로 한다.
 
 ## 2. 엔드포인트
 
@@ -85,6 +88,7 @@
 ## 4. 현재 구현 기준 주의사항
 
 - `summary`는 AI summary 실패 시 deterministic fallback 문장으로 대체될 수 있다.
+- `summary`는 recommendation content 전용이며, fallback/degraded-state를 대표하는 필드로 해석하지 않는다.
 - `weatherFallbackApplied=true`면 `currentWeather`, `startWeather`, `endWeather`는 `null`이다.
 - `weatherFallbackApplied=false`여도 `currentWeather`는 `null`일 수 있다. 이 경우 `startWeather`와 `endWeather`가 있으면 추천은 계속 진행되고 current 기반 보정만 생략된다.
 - 실제 현재 위치가 없으면 `currentWeather`는 목적지 날씨로 대체하지 않고 `null`로 유지한다.
