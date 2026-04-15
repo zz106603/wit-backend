@@ -11,6 +11,7 @@
 - `summary`는 현재 구현의 `OutfitDecision.aiSummary`를 외부 API 필드명으로 노출한 값이다.
 - `location`은 현재 구현의 해석 결과 표시 위치(`resolvedLocation.displayLocation`)다.
 - `locationFallbackApplied=true`면 일정 위치 해석에 실패해 현재 위치 기준으로 추천한 경우다.
+- 이 경우 해당 응답은 목적지 기반 추천이 아니며, `location`도 현재 위치 표시값이다.
 - `weatherFallbackApplied=true`면 날씨 조회 실패로 safe default 추천을 반환한 경우다.
 - `weatherSource=CACHE`면 실시간 대신 최신 캐시 날씨를 사용한 경우다.
 - `fallbackNotice`는 fallback 의미를 바로 이해할 수 있게 추가한 사용자용 안내 문구다.

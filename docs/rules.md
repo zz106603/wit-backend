@@ -46,7 +46,9 @@
 ## Failure Handling
 
 ### Location Failure
-- fallback to default location
+- FAILED면 current location 기준으로 fallback
+- 이 경우 응답에서 `locationFallbackApplied=true`로 명시한다
+- 이 경우 추천은 목적지 기반 추천이 아니라 current-location fallback 결과다
 
 ### Weather Failure
 - fallback to latest cached data
