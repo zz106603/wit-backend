@@ -183,6 +183,35 @@ class HttpGoogleCalendarClientTest {
     }
 
     @Test
+    void 시간없는_일정은_추천계산용_대표시각_12시로_정규화한다() {
+        server.expect(requestTo(startsWith("https://www.googleapis.test/calendar/v3/calendars/primary/events")))
+                .andRespond(withSuccess("""
+                        {
+                          "items": [
+                            {
+                              "id": "event-1",
+                              "status": "confirmed",
+                              "summary": "종일 행사",
+                              "start": { "date": "2026-04-07" },
+                              "end": { "date": "2026-04-08" }
+                            }
+                          ]
+                        }
+                        """, MediaType.APPLICATION_JSON));
+
+        List<CalendarEvent> events = googleCalendarClient.fetchUpcomingEvents(
+                googleIntegration(),
+                LocalDateTime.of(2026, 4, 7, 9, 0),
+                3
+        );
+
+        assertThat(events).hasSize(1);
+        assertThat(events.getFirst().startAt()).isEqualTo(LocalDateTime.of(2026, 4, 7, 12, 0));
+        assertThat(events.getFirst().endAt()).isEqualTo(LocalDateTime.of(2026, 4, 7, 12, 0));
+        server.verify();
+    }
+
+    @Test
     void location_필드가_있으면_title보다_location을_rawLocation으로_사용한다() {
         server.expect(requestTo(startsWith("https://www.googleapis.test/calendar/v3/calendars/primary/events")))
                 .andRespond(withSuccess("""
