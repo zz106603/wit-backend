@@ -37,6 +37,8 @@ public record RecommendationResponse(
         String rawLocation,
         @Schema(description = "위치 해석 상세")
         LocationResolutionResponse locationResolution,
+        @Schema(description = "fallback 이전 원래 위치 해석 상세", nullable = true)
+        LocationResolutionResponse originalLocationResolution,
         @Schema(description = "우산 판단 이유", example = "종료 시점 비 예보가 있어 우산이 필요합니다.", nullable = true)
         String umbrellaReason,
         @Schema(description = "옷차림 판단 이유", example = "종료 시점 체감온도 기준으로 긴팔 + 가벼운 겉옷을 추천합니다.", nullable = true)
@@ -71,6 +73,7 @@ public record RecommendationResponse(
                 fallbackNotice(result),
                 result.calendarEvent().rawLocation(),
                 LocationResolutionResponse.from(result.resolvedLocation()),
+                LocationResolutionResponse.from(result.originalLocationResolution()),
                 decision.umbrellaReason(),
                 decision.outfitReason(),
                 decision.temperatureGap(),

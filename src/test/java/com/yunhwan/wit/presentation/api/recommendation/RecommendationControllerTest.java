@@ -57,6 +57,7 @@ class RecommendationControllerTest {
                 .andExpect(jsonPath("$.recommendations[0].locationResolution.displayLocation")
                         .value("서울특별시 강남구 테헤란로 1"))
                 .andExpect(jsonPath("$.recommendations[0].locationResolution.resolvedBy").value("GOOGLE_PLACES"))
+                .andExpect(jsonPath("$.recommendations[0].originalLocationResolution").value(nullValue()))
                 .andExpect(jsonPath("$.recommendations[0].locationFallbackApplied").value(false))
                 .andExpect(jsonPath("$.recommendations[0].weatherSource").value("NORMAL"))
                 .andExpect(jsonPath("$.recommendations[0].needUmbrella").value(true))
@@ -78,6 +79,8 @@ class RecommendationControllerTest {
                 .andExpect(jsonPath("$.recommendations[0].locationFallbackApplied").value(true))
                 .andExpect(jsonPath("$.recommendations[0].weatherSource").value("SAFE_DEFAULT"))
                 .andExpect(jsonPath("$.recommendations[0].fallbackNotice").value("날씨 조회 실패로 안전 기본 추천을 반환했습니다."))
+                .andExpect(jsonPath("$.recommendations[0].originalLocationResolution.status").value("FAILED"))
+                .andExpect(jsonPath("$.recommendations[0].originalLocationResolution.rawLocation").value("강남 목구멍"))
                 .andExpect(jsonPath("$.recommendations[0].currentWeather").value(nullValue()))
                 .andExpect(jsonPath("$.recommendations[0].startWeather").value(nullValue()))
                 .andExpect(jsonPath("$.recommendations[0].endWeather").value(nullValue()));
@@ -105,6 +108,7 @@ class RecommendationControllerTest {
                 .andExpect(jsonPath("$.eventId").value("event-1"))
                 .andExpect(jsonPath("$.title").value("강남 회식"))
                 .andExpect(jsonPath("$.location").value("서울특별시 강남구 테헤란로 1"))
+                .andExpect(jsonPath("$.originalLocationResolution").value(nullValue()))
                 .andExpect(jsonPath("$.summary").value("종료 시점 비 예보가 있어 우산과 긴팔 + 가벼운 겉옷이 필요합니다."))
                 .andExpect(jsonPath("$.endWeather.weatherType").value("RAIN"));
     }
@@ -132,6 +136,7 @@ class RecommendationControllerTest {
                 decision,
                 event,
                 location,
+                null,
                 weatherSnapshot(location, LocalDateTime.of(2026, 4, 7, 9, 0), 20, 20, 10, WeatherType.CLEAR),
                 weatherSnapshot(location, event.startAt(), 19, 18, 30, WeatherType.CLOUDY),
                 weatherSnapshot(location, event.endAt(), 16, 14, 70, WeatherType.RAIN),
@@ -147,6 +152,7 @@ class RecommendationControllerTest {
                 decision(),
                 event,
                 location(event),
+                ResolvedLocation.failed(event.rawLocation()),
                 null,
                 null,
                 null,
@@ -163,6 +169,7 @@ class RecommendationControllerTest {
                 decision(),
                 event,
                 location,
+                null,
                 weatherSnapshot(location, LocalDateTime.of(2026, 4, 7, 9, 0), 20, 20, 10, WeatherType.CLEAR),
                 weatherSnapshot(location, event.startAt(), 19, 18, 30, WeatherType.CLOUDY),
                 weatherSnapshot(location, event.endAt(), 16, 14, 70, WeatherType.RAIN),

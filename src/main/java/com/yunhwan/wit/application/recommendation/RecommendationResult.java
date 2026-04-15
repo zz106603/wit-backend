@@ -9,6 +9,7 @@ public record RecommendationResult(
         OutfitDecision outfitDecision,
         CalendarEvent calendarEvent,
         ResolvedLocation resolvedLocation,
+        ResolvedLocation originalLocationResolution,
         WeatherSnapshot currentWeather,
         WeatherSnapshot startWeather,
         WeatherSnapshot endWeather,

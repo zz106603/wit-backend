@@ -60,6 +60,7 @@
 - FAILED면 current location 기준으로 fallback
 - 이 경우 응답에서 `locationFallbackApplied=true`로 명시한다
 - 이 경우 추천은 목적지 기반 추천이 아니라 current-location fallback 결과다
+- 이 경우 메인 `locationResolution`은 fallback에 실제 사용된 위치를 나타내고, `originalLocationResolution`은 원래의 `FAILED` 해석 결과를 보존한다
 
 ### Weather Failure
 - fallback to latest cached data

@@ -11,6 +11,7 @@ import com.yunhwan.wit.application.weather.WeatherClient;
 import com.yunhwan.wit.application.weather.WeatherCache;
 import com.yunhwan.wit.domain.model.CalendarEvent;
 import com.yunhwan.wit.domain.model.LocationResolvedBy;
+import com.yunhwan.wit.domain.model.LocationResolutionStatus;
 import com.yunhwan.wit.domain.model.OutfitDecision;
 import com.yunhwan.wit.domain.model.RecommendedOutfitLevel;
 import com.yunhwan.wit.domain.model.ResolvedLocation;
@@ -133,6 +134,9 @@ class RecommendationServiceTest {
 
         assertThat(result.weatherFallbackApplied()).isFalse();
         assertThat(result.locationFallbackApplied()).isTrue();
+        assertThat(result.originalLocationResolution()).isNotNull();
+        assertThat(result.originalLocationResolution().status()).isEqualTo(LocationResolutionStatus.FAILED);
+        assertThat(result.originalLocationResolution().rawLocation()).isEqualTo(calendarEvent.rawLocation());
         assertThat(result.weatherSource()).isEqualTo(RecommendationWeatherSource.NORMAL);
         assertThat(result.resolvedLocation()).isEqualTo(currentLocation);
         assertThat(result.startWeather().regionName()).isEqualTo(currentLocation.displayLocation());
@@ -377,6 +381,7 @@ class RecommendationServiceTest {
                 ),
                 calendarEvent,
                 eventLocation(),
+                null,
                 snapshot(currentLocation(), currentTime, 20, 20, 10, WeatherType.CLEAR),
                 snapshot(eventLocation(), calendarEvent.startAt(), 19, 19, 20, WeatherType.CLOUDY),
                 snapshot(eventLocation(), calendarEvent.endAt(), 18, 18, 40, WeatherType.CLOUDY),

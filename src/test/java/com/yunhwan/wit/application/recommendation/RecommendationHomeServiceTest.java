@@ -112,6 +112,7 @@ class RecommendationHomeServiceTest {
                 outfitDecision,
                 event,
                 location,
+                null,
                 currentWeather,
                 startWeather,
                 endWeather,
