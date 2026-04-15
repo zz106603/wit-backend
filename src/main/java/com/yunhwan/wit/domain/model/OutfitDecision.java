@@ -8,7 +8,7 @@ public record OutfitDecision(
         String recommendedOutfitText,
         String umbrellaReason,
         String outfitReason,
-        int temperatureGap,
+        Integer temperatureGap,
         String weatherChangeSummary,
         String aiSummary
 ) {

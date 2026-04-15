@@ -17,7 +17,7 @@ public class OutfitRuleEngine {
         Objects.requireNonNull(endWeather, "endWeather must not be null");
 
         boolean needUmbrella = shouldBringUmbrella(endWeather);
-        int temperatureGap = currentWeather == null ? 0 : endWeather.feelsLike() - currentWeather.feelsLike();
+        Integer temperatureGap = currentWeather == null ? null : endWeather.feelsLike() - currentWeather.feelsLike();
 
         RecommendedOutfitLevel baselineLevel = determineBaseline(endWeather.feelsLike());
         boolean shouldAdjustWarmer = shouldAdjustWarmer(currentWeather, startWeather, endWeather);
