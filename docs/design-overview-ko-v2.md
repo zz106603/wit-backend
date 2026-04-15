@@ -126,6 +126,10 @@ AI Summary
 - title
 - startAt
 - endAt
+- 시간 미입력 일정(date-only)
+  - 추천 계산에서는 해당 날짜의 로컬 12:00을 대표 시각으로 사용
+  - 추천 계산에서는 startAt / endAt 을 같은 대표 시각으로 정규화
+  - 이는 계산 정책이며, 실제 일정이 12:00에 발생한다는 의미는 아님
 - rawLocation
   - Google Calendar location 우선
   - location이 비어 있으면 장소성 있는 title을 보조 후보로 사용

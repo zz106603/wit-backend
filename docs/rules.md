@@ -56,6 +56,14 @@
 - ignore AI result
 - continue with rule-based flow
 
+## Calendar Event Time Policy
+
+- explicit time이 없는 calendar event(date-only)은 time-unspecified event로 처리
+- recommendation 계산에서는 이벤트 날짜의 로컬 12:00을 대표 시각으로 사용
+- recommendation 계산에서는 startAt / endAt 을 같은 대표 시각으로 정규화
+- 이 경우 intra-event time-flow adjustment(start → end 변화)는 적용하지 않음
+- 이는 계산 정책이며 실제 일정 시각 해석 규칙은 아님
+
 ## Cache Strategy (for later stage)
 
 ### Location Cache
