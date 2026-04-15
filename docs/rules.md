@@ -43,6 +43,17 @@
 3. If still unresolved → AI fallback
 4. If still fails → default location
 
+### Calendar Title As Location Candidate
+
+- event `title`은 `location`이 비어 있을 때만 보조 후보로 사용할 수 있다
+- 허용:
+  - 지역명, 상호명, 주소성 표현
+  - 직접적인 장소 지시어(예: `강남역`, `성수동`, `판교 카페`, `테헤란로`, `회사`, `사무실`, `집`, `학교`)
+- 비허용:
+  - 일반 활동명이나 추상 표현(예: `회의`, `운동`, `약속`, `공부`, `점심`, `저녁`, `회식`)
+- title이 모호하거나 추상적인 표현만 담고 있으면 location을 추론하지 않는다
+- 이 단계는 deterministic heuristic만 사용하며, title만으로 새로운 의미를 추론하지 않는다
+
 ### Google Places Evaluation
 
 - no result: Places 응답이 비어 있으면 `FAILED`
