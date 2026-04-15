@@ -125,7 +125,10 @@ AI Summary
 - eventId
 - title
 - startAt
+  - Google Calendar structured time field(start.dateTime / start.date)만 사용
+  - title은 비정형 자연어이므로 시간 판단 근거로 사용하지 않음
 - endAt
+  - Google Calendar structured time field(end.dateTime / end.date)만 사용
 - 시간 미입력 일정(date-only)
   - 추천 계산에서는 해당 날짜의 로컬 12:00을 대표 시각으로 사용
   - 추천 계산에서는 startAt / endAt 을 같은 대표 시각으로 정규화
