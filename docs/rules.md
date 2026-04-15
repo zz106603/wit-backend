@@ -20,7 +20,7 @@
 
 ## Precipitation
 
-- precipitationProbability >= 60%
+- precipitationProbability >= 50%
   → add umbrella
 
 ## Condition Adjustment
