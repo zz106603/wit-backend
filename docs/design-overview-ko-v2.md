@@ -99,13 +99,14 @@ AI는 아래 2가지 역할만 수행한다:
 날씨 비교의 원래 의도는 현재 위치 날씨와 목적지의 시작/종료 시점 날씨를 비교하는 것이다.
 다만 실제 현재 위치가 없으면 `currentWeather`를 임의로 대체하지 않는다.
 이 경우 current 기반 비교는 생략하고, 목적지의 시작/종료 시점 날씨만으로 추천한다.
+즉 `currentWeather`는 optional이고, 정상 추천의 핵심 입력은 `startWeather`와 `endWeather`다.
 
 ```
 CalendarEvent
    ↓
 ResolvedLocation (rule → Google Places → AI fallback)
    ↓
-WeatherSnapshot (3개)
+WeatherSnapshot (current optional, start/end required)
    ↓
 Rule Engine (핵심)
    ↓
@@ -227,7 +228,8 @@ AI Summary
 ## 6.4 location 실패
 
 ```
-- 현재 위치 기준 판단
+- current location fallback 기준 판단
+- 실제 현재 위치가 없으면 configured current location provider 결과를 사용
 - 안내 문구 표시
 - 추천은 계속 제공
 ```
@@ -303,6 +305,14 @@ Google Places 평가 규칙:
 
 # 8. API 구조
 
+## 8.1 Token/Auth 책임 경계
+
+```
+- filter/security: 요청 인증, 인증 컨텍스트 설정, 접근 제어
+- application: current user 기준 Google integration 조회, Google token 상태 평가, refresh, 재연동 필요 판단
+- domain: token/auth/security 로직을 다루지 않음
+```
+
 ## 주요 API
 
 ```
@@ -350,10 +360,11 @@ GET  /api/recommendations/events/{eventId}
 ## location
 
 ```
-TTL:
-- RESOLVED: 30일
-- APPROXIMATED: 7일
-- FAILED: 1일
+현재 구현:
+- single configured TTL 사용
+
+향후 운영 옵션:
+- 상태별 TTL 차등 적용 가능
 ```
 
 ---
@@ -361,9 +372,11 @@ TTL:
 ## weather
 
 ```
-TTL:
-- 현재: 10분
-- 예보: 30분
+현재 구현:
+- single configured TTL 사용
+
+향후 운영 옵션:
+- 현재/예보 TTL 분리 가능
 ```
 
 ---
@@ -371,8 +384,8 @@ TTL:
 ## recommendation
 
 ```
-TTL:
-- 10~30분
+현재 구현:
+- single configured TTL 사용
 ```
 
 ---
