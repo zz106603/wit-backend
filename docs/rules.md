@@ -41,7 +41,7 @@
 1. Rule-based extraction first
 2. If unresolved or low-confidence → Google Places
 3. If still unresolved → AI fallback
-4. If still fails → default location
+4. If still fails → current location fallback
 
 ### Calendar Title As Location Candidate
 
@@ -75,6 +75,7 @@
 
 ### Location Failure
 - FAILED면 current location 기준으로 fallback
+- 실제 현재 위치가 없으면 configured current location provider 결과를 사용한다
 - 이 경우 응답에서 `locationFallbackApplied=true`로 명시한다
 - 이 경우 추천은 목적지 기반 추천이 아니라 current-location fallback 결과다
 - 이 경우 메인 `locationResolution`은 fallback에 실제 사용된 위치를 나타내고, `originalLocationResolution`은 원래의 `FAILED` 해석 결과를 보존한다
@@ -105,12 +106,14 @@
 
 ### Location Cache
 - key: location_name
-- TTL: 24h
+- 현재 구현은 single configured TTL 사용
+- 상태별 TTL 차등 적용은 향후 운영 옵션
 
 ### Weather Cache
 - key: lat/lon + time
-- TTL: 1h
+- 현재 구현은 single configured TTL 사용
+- 현재/예보 TTL 분리는 향후 운영 옵션
 
 ### Recommendation Cache
 - key: event + time + location
-- TTL: 30min
+- 현재 구현은 single configured TTL 사용
