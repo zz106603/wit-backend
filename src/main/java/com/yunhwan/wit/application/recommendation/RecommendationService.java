@@ -85,7 +85,7 @@ public class RecommendationService {
         WeatherSnapshot startWeather = forecastSnapshots == null ? null : forecastSnapshots.startWeather();
         WeatherSnapshot endWeather = forecastSnapshots == null ? null : forecastSnapshots.endWeather();
 
-        if (currentWeather == null || startWeather == null || endWeather == null) {
+        if (startWeather == null || endWeather == null) {
             log.info(
                     "[RecommendationDebug] weather fallback used. source=SAFE_DEFAULT, eventId={}",
                     calendarEvent.eventId()
@@ -110,6 +110,13 @@ public class RecommendationService {
             writeToCache(calendarEvent, cacheTime, fallbackResult);
             log.info("[RecommendationDebug] recommend end with weather fallback. eventId={}", calendarEvent.eventId());
             return fallbackResult;
+        }
+
+        if (currentWeather == null) {
+            log.info(
+                    "[RecommendationDebug] current weather missing. eventId={}, policy=FORECAST_PRIORITY",
+                    calendarEvent.eventId()
+            );
         }
 
         log.info("[RecommendationDebug] rule engine before. eventId={}", calendarEvent.eventId());
@@ -343,8 +350,11 @@ public class RecommendationService {
             WeatherClient.CurrentWeatherResult currentWeatherResult,
             WeatherClient.WeatherRangeResult weatherRangeResult
     ) {
-        if (currentWeatherResult.source() == WeatherClient.WeatherFetchSource.CACHE
-                || weatherRangeResult.source() == WeatherClient.WeatherFetchSource.CACHE) {
+        boolean currentFromCache = currentWeatherResult != null
+                && currentWeatherResult.source() == WeatherClient.WeatherFetchSource.CACHE;
+        boolean rangeFromCache = weatherRangeResult != null
+                && weatherRangeResult.source() == WeatherClient.WeatherFetchSource.CACHE;
+        if (currentFromCache || rangeFromCache) {
             return RecommendationWeatherSource.CACHE;
         }
         return RecommendationWeatherSource.NORMAL;

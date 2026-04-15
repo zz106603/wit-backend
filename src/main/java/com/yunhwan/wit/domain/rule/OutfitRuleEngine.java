@@ -13,12 +13,11 @@ public class OutfitRuleEngine {
             WeatherSnapshot startWeather,
             WeatherSnapshot endWeather
     ) {
-        Objects.requireNonNull(currentWeather, "currentWeather must not be null");
         Objects.requireNonNull(startWeather, "startWeather must not be null");
         Objects.requireNonNull(endWeather, "endWeather must not be null");
 
         boolean needUmbrella = shouldBringUmbrella(endWeather);
-        int temperatureGap = endWeather.feelsLike() - currentWeather.feelsLike();
+        int temperatureGap = currentWeather == null ? 0 : endWeather.feelsLike() - currentWeather.feelsLike();
 
         RecommendedOutfitLevel baselineLevel = determineBaseline(endWeather.feelsLike());
         boolean shouldAdjustWarmer = shouldAdjustWarmer(currentWeather, startWeather, endWeather);
@@ -61,7 +60,8 @@ public class OutfitRuleEngine {
             WeatherSnapshot startWeather,
             WeatherSnapshot endWeather
     ) {
-        boolean muchColderThanCurrent = currentWeather.feelsLike() - endWeather.feelsLike() >= 4;
+        boolean muchColderThanCurrent = currentWeather != null
+                && currentWeather.feelsLike() - endWeather.feelsLike() >= 4;
         boolean dropsFromStartToEnd = startWeather.feelsLike() - endWeather.feelsLike() >= 3;
         boolean lowTemperatureWithRain = endWeather.feelsLike() <= 12 && endWeather.weatherType() == WeatherType.RAIN;
 
@@ -108,7 +108,7 @@ public class OutfitRuleEngine {
             return "종료 시점 체감온도 기준으로 " + toOutfitText(baselineLevel) + "을 추천합니다.";
         }
 
-        if (currentWeather.feelsLike() - endWeather.feelsLike() >= 4) {
+        if (currentWeather != null && currentWeather.feelsLike() - endWeather.feelsLike() >= 4) {
             return "도착 시점 체감온도가 현재보다 4도 이상 낮아 한 단계 더 따뜻하게 추천합니다.";
         }
         if (startWeather.feelsLike() - endWeather.feelsLike() >= 3) {
@@ -122,10 +122,10 @@ public class OutfitRuleEngine {
             WeatherSnapshot startWeather,
             WeatherSnapshot endWeather
     ) {
-        int currentToEndGap = endWeather.feelsLike() - currentWeather.feelsLike();
+        Integer currentToEndGap = currentWeather == null ? null : endWeather.feelsLike() - currentWeather.feelsLike();
         int startToEndGap = endWeather.feelsLike() - startWeather.feelsLike();
 
-        if (currentToEndGap <= -4) {
+        if (currentToEndGap != null && currentToEndGap <= -4) {
             return "현재보다 종료 시점이 더 쌀쌀합니다.";
         }
         if (startToEndGap <= -3) {

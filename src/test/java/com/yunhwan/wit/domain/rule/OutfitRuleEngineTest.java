@@ -121,6 +121,21 @@ class OutfitRuleEngineTest {
     }
 
     @Test
+    void 현재날씨가_없으면_current기반_보정없이_start_end만으로_판단한다() {
+        OutfitDecision decision = outfitRuleEngine.decide(
+                null,
+                snapshot(23, 23, 10, WeatherType.CLEAR),
+                snapshot(20, 20, 60, WeatherType.CLOUDY)
+        );
+
+        assertThat(decision.needUmbrella()).isTrue();
+        assertThat(decision.recommendedOutfitLevel()).isEqualTo(RecommendedOutfitLevel.LONG_SLEEVE);
+        assertThat(decision.outfitReason()).contains("3도 이상 내려가");
+        assertThat(decision.temperatureGap()).isZero();
+        assertThat(decision.weatherChangeSummary()).contains("기온이 내려갑니다");
+    }
+
+    @Test
     void 시작에서_종료까지_2도하락이면_이_조건만으로는_보정하지_않는다() {
         OutfitDecision decision = decide(
                 snapshot(20, 20, 10, WeatherType.CLEAR),
