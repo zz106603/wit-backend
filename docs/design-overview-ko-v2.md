@@ -150,6 +150,9 @@ AI Summary
 - lng
 - confidence
 - status (RESOLVED / APPROXIMATED / FAILED)
+  - RESOLVED: 장소명/주소 정합성이 충분하고 confidence 기준을 만족한 결과
+  - APPROXIMATED: 의미 있는 부분 일치가 있지만 exact destination으로 보기 어려운 근사 결과
+  - FAILED: 결과 없음, 좌표/이름 누락, 정합성 부족 등으로 목적지로 채택할 수 없는 결과
 - resolvedBy (RULE / GOOGLE_PLACES / AI)
 ```
 
@@ -240,6 +243,24 @@ rule → Google Places → AI fallback
 ```
 
 AI는 Google Places로도 충분히 해석되지 않는 경우의 fallback으로만 사용한다.
+
+Google Places 평가 규칙:
+
+```
+- 결과 없음(no result): Places 응답이 비어 있으면 FAILED
+- 결과 부족(insufficient result): 응답이 있어도 좌표/이름 누락, 입력-결과 정합성 부족이면 FAILED
+- RESOLVED:
+  - 주소 정보가 있고
+  - 입력과 장소명/주소가 직접 일치하거나, 이름/주소 양쪽에서 강한 토큰 정합이 확인된 경우
+  - confidence 0.8 이상인 경우에만 충분한 결과로 채택
+- APPROXIMATED:
+  - 의미 있는 부분 일치가 있는 경우
+  - 실패가 아니며 destination 기반 추천에 그대로 사용
+- AI fallback trigger:
+  - Google Places 결과가 FAILED인 경우
+  - 또는 RESOLVED여도 confidence 0.8 미만이라 충분한 결과가 아닌 경우
+  - APPROXIMATED는 실패가 아니므로 AI fallback 조건으로 보지 않음
+```
 
 ### 입력
 

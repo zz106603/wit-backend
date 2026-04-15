@@ -43,6 +43,17 @@
 3. If still unresolved → AI fallback
 4. If still fails → default location
 
+### Google Places Evaluation
+
+- no result: Places 응답이 비어 있으면 `FAILED`
+- insufficient result: 응답이 있어도 좌표/이름 누락 또는 입력-결과 정합성 부족이면 `FAILED`
+- `RESOLVED`: 주소 정보가 있고 입력과 장소명/주소가 직접 일치하거나 강한 토큰 정합이 확인된 결과
+- `APPROXIMATED`: 의미 있는 부분 일치가 있는 근사 결과
+- `FAILED`: 목적지로 채택할 수 없는 결과
+- Google Places `RESOLVED` 결과는 confidence `0.8` 이상일 때만 충분한 결과로 채택
+- Google Places `APPROXIMATED` 결과는 실패가 아니므로 그대로 채택하며 AI fallback 조건으로 보지 않음
+- AI fallback은 Google Places 결과가 `FAILED`이거나, `RESOLVED`여도 confidence `0.8` 미만일 때만 트리거된다
+
 ## Failure Handling
 
 ### Location Failure
