@@ -58,6 +58,9 @@
 
 ## Calendar Event Time Policy
 
+- calendar event의 시간 source of truth는 Google Calendar structured field(start.dateTime / end.dateTime / start.date / end.date)뿐이다
+- title은 비정형 자연어 필드이므로 시간 추출에 사용하지 않는다
+- title 기반 시간 해석은 오해석 위험이 있어 지원하지 않는다
 - explicit time이 없는 calendar event(date-only)은 time-unspecified event로 처리
 - recommendation 계산에서는 이벤트 날짜의 로컬 12:00을 대표 시각으로 사용
 - recommendation 계산에서는 startAt / endAt 을 같은 대표 시각으로 정규화
