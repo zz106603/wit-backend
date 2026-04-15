@@ -87,6 +87,7 @@
 - `summary`는 AI summary 실패 시 deterministic fallback 문장으로 대체될 수 있다.
 - `weatherFallbackApplied=true`면 `currentWeather`, `startWeather`, `endWeather`는 `null`이다.
 - `weatherFallbackApplied=false`여도 `currentWeather`는 `null`일 수 있다. 이 경우 `startWeather`와 `endWeather`가 있으면 추천은 계속 진행되고 current 기반 보정만 생략된다.
+- 실제 현재 위치가 없으면 `currentWeather`는 목적지 날씨로 대체하지 않고 `null`로 유지한다.
 - `weatherSource`는 `NORMAL`, `CACHE`, `SAFE_DEFAULT` 중 하나다.
 - `POST /api/integrations/google/callback`이 iOS용 기준 엔드포인트다.
 - 기존 GET callback도 호환용으로 유지되지만, 신규 클라이언트 계약은 POST 기준으로 본다.
