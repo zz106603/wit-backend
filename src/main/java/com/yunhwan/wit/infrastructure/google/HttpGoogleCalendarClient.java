@@ -28,6 +28,7 @@ public class HttpGoogleCalendarClient implements GoogleCalendarClient {
     private static final String CANCELLED_STATUS = "cancelled";
     private static final int EVENT_LOOKAHEAD_DAYS = 7;
     private static final int EVENT_FETCH_BUFFER = 10;
+    private static final int TIME_UNSPECIFIED_REPRESENTATIVE_HOUR = 12;
     private static final Set<String> GENERIC_TITLE_LOCATION_EXCLUSIONS = Set.of(
             "회의",
             "미팅",
@@ -198,6 +199,21 @@ public class HttpGoogleCalendarClient implements GoogleCalendarClient {
     }
 
     private CalendarEvent toCalendarEvent(GoogleCalendarEventsResponse.GoogleCalendarEventItem item) {
+        if (isDateOnlyEvent(item)) {
+            LocalDateTime representativeTime = toRepresentativeDateOnlyTime(item.start());
+            if (representativeTime == null) {
+                return null;
+            }
+
+            return new CalendarEvent(
+                    item.id(),
+                    StringUtils.hasText(item.summary()) ? item.summary() : "제목 없음",
+                    representativeTime,
+                    representativeTime,
+                    locationCandidate(item.location(), item.summary())
+            );
+        }
+
         LocalDateTime startAt = toLocalDateTime(item.start());
         if (startAt == null) {
             return null;
@@ -215,6 +231,12 @@ public class HttpGoogleCalendarClient implements GoogleCalendarClient {
                 endAt,
                 locationCandidate(item.location(), item.summary())
         );
+    }
+
+    private boolean isDateOnlyEvent(GoogleCalendarEventsResponse.GoogleCalendarEventItem item) {
+        return item.start() != null
+                && !StringUtils.hasText(item.start().dateTime())
+                && StringUtils.hasText(item.start().date());
     }
 
     private String locationCandidate(String location, String summary) {
@@ -366,7 +388,7 @@ public class HttpGoogleCalendarClient implements GoogleCalendarClient {
         }
 
         if (StringUtils.hasText(dateTime.date())) {
-            LocalDateTime converted = LocalDate.parse(dateTime.date()).atStartOfDay();
+            LocalDateTime converted = toRepresentativeDateOnlyTime(dateTime);
             log.info(
                     "[GoogleCalendarDebug] Event date converted. rawDate={}, targetZone={}, convertedDateTime={}",
                     dateTime.date(),
@@ -377,6 +399,13 @@ public class HttpGoogleCalendarClient implements GoogleCalendarClient {
         }
 
         return null;
+    }
+
+    private LocalDateTime toRepresentativeDateOnlyTime(GoogleCalendarEventsResponse.GoogleCalendarEventDateTime dateTime) {
+        if (dateTime == null || !StringUtils.hasText(dateTime.date())) {
+            return null;
+        }
+        return LocalDate.parse(dateTime.date()).atTime(TIME_UNSPECIFIED_REPRESENTATIVE_HOUR, 0);
     }
 
     private String toRfc3339(LocalDateTime now) {
