@@ -63,7 +63,9 @@
 
 ### Weather Failure
 - fallback to latest cached data
-- if none → safe default outfit
+- start 또는 end weather가 없으면 → safe default outfit
+- start / end weather가 있으면 recommendation은 계속 진행한다
+- current weather만 없으면 current 기반 보정만 생략한다
 
 ### AI Failure
 - ignore AI result

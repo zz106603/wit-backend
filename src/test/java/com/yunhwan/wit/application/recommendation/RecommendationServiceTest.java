@@ -203,6 +203,39 @@ class RecommendationServiceTest {
     }
 
     @Test
+    void 현재날씨만_없으면_start_end기준으로_추천을_계속_생성한다() {
+        ResolvedLocation currentLocation = currentLocation();
+        ResolvedLocation eventLocation = eventLocation();
+        StubWeatherClient weatherClient = new StubWeatherClient();
+        weatherClient.setTimedWeather(eventLocation, calendarEvent.startAt(),
+                snapshot(eventLocation, calendarEvent.startAt(), 21, 21, 20, WeatherType.CLOUDY));
+        weatherClient.setTimedWeather(eventLocation, calendarEvent.endAt(),
+                snapshot(eventLocation, calendarEvent.endAt(), 18, 18, 70, WeatherType.RAIN));
+
+        RecommendationService recommendationService = new RecommendationService(
+                rawLocation -> eventLocation,
+                () -> currentLocation,
+                weatherClient,
+                new OutfitRuleEngine(),
+                new WeatherFailureFallbackDecisionProvider(),
+                new StubSummaryGenerator(),
+                new InMemoryRecommendationCache(),
+                clock
+        );
+
+        RecommendationResult result = recommendationService.recommend(calendarEvent);
+
+        assertThat(result.weatherFallbackApplied()).isFalse();
+        assertThat(result.weatherSource()).isEqualTo(RecommendationWeatherSource.NORMAL);
+        assertThat(result.currentWeather()).isNull();
+        assertThat(result.startWeather()).isNotNull();
+        assertThat(result.endWeather()).isNotNull();
+        assertThat(result.outfitDecision().needUmbrella()).isTrue();
+        assertThat(result.outfitDecision().outfitReason()).contains("3도 이상 내려가");
+        assertThat(result.outfitDecision().temperatureGap()).isZero();
+    }
+
+    @Test
     void 날씨_API가_실패해도_latest_cache가_있으면_캐시된_날씨로_추천을_계속_생성한다() {
         ResolvedLocation currentLocation = currentLocation();
         ResolvedLocation eventLocation = eventLocation();
