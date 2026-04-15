@@ -144,11 +144,10 @@ class RecommendationServiceTest {
     }
 
     @Test
-    void 실제_현재위치가_없으면_currentWeather에_목적지를_사용한다() {
+    void 실제_현재위치가_없으면_currentWeather를_조회하지_않고_start_end만_사용한다() {
         ResolvedLocation currentLocation = currentLocation();
         ResolvedLocation eventLocation = eventLocation();
         StubWeatherClient weatherClient = new StubWeatherClient();
-        weatherClient.setCurrentWeather(eventLocation, snapshot(eventLocation, currentTime, 22, 22, 10, WeatherType.CLEAR));
         weatherClient.setTimedWeather(eventLocation, calendarEvent.startAt(),
                 snapshot(eventLocation, calendarEvent.startAt(), 21, 21, 20, WeatherType.CLOUDY));
         weatherClient.setTimedWeather(eventLocation, calendarEvent.endAt(),
@@ -169,7 +168,9 @@ class RecommendationServiceTest {
 
         assertThat(result.weatherFallbackApplied()).isFalse();
         assertThat(result.weatherSource()).isEqualTo(RecommendationWeatherSource.NORMAL);
-        assertThat(result.currentWeather().regionName()).isEqualTo(eventLocation.displayLocation());
+        assertThat(result.currentWeather()).isNull();
+        assertThat(result.startWeather().regionName()).isEqualTo(eventLocation.displayLocation());
+        assertThat(result.endWeather().regionName()).isEqualTo(eventLocation.displayLocation());
     }
 
     @Test

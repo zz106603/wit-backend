@@ -237,19 +237,23 @@ public class RecommendationService {
             ResolvedLocation resolvedLocation
     ) {
         boolean hasRealCurrentLocation = currentLocationProvider.hasRealCurrentLocation();
-        ResolvedLocation currentWeatherLocation = hasRealCurrentLocation ? currentLocation : resolvedLocation;
+        ResolvedLocation currentWeatherLocation = hasRealCurrentLocation ? currentLocation : null;
         log.info(
                 "[RecommendationDebug] current weather location selected. currentLocationSource={}, currentWeatherSource={}, currentLocation={}, resolvedLocation={}, currentWeatherLocation={}",
                 hasRealCurrentLocation ? "REAL" : "DEFAULT",
-                hasRealCurrentLocation ? "CURRENT_LOCATION" : "FALLBACK_TO_DESTINATION",
+                hasRealCurrentLocation ? "CURRENT_LOCATION" : "SKIP_CURRENT_WEATHER",
                 currentLocation.displayLocation(),
                 resolvedLocation.displayLocation(),
-                currentWeatherLocation.displayLocation()
+                currentWeatherLocation == null ? null : currentWeatherLocation.displayLocation()
         );
         return currentWeatherLocation;
     }
 
     private WeatherClient.CurrentWeatherResult fetchCurrentWeather(ResolvedLocation location) {
+        if (location == null) {
+            log.info("[RecommendationDebug] current weather skipped. policy=NO_REAL_CURRENT_LOCATION");
+            return null;
+        }
         try {
             log.info(
                     "[RecommendationDebug] current weather before. location={}, lat={}, lng={}",

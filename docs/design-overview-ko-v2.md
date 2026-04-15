@@ -97,9 +97,8 @@ AI는 아래 2가지 역할만 수행한다:
 7일 밖 일정을 부족한 개수만큼 채우지 않는다.
 
 날씨 비교의 원래 의도는 현재 위치 날씨와 목적지의 시작/종료 시점 날씨를 비교하는 것이다.
-다만 backend-only MVP에서 실제 현재 위치가 없고 기본 config 위치만 있는 경우,
-임시로 목적지(`resolvedLocation`)를 `currentWeather` 기준으로 사용한다.
-실제 현재 위치가 제공되면 `currentWeather`는 다시 현재 위치 기준으로 조회한다.
+다만 실제 현재 위치가 없으면 `currentWeather`를 임의로 대체하지 않는다.
+이 경우 current 기반 비교는 생략하고, 목적지의 시작/종료 시점 날씨만으로 추천한다.
 
 ```
 CalendarEvent
