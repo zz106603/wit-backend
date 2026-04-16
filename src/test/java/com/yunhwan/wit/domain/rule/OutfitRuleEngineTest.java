@@ -210,6 +210,8 @@ class OutfitRuleEngineTest {
 
         assertThat(decision.recommendedOutfitLevel()).isEqualTo(RecommendedOutfitLevel.HEAVY_OUTER);
         assertThat(decision.outfitReason()).contains("현재보다 4도 이상 낮아");
+        assertThat(decision.outfitReason()).doesNotContain("3도 이상 내려가");
+        assertThat(decision.outfitReason()).doesNotContain("낮은 체감온도와 비");
     }
 
     @Test
