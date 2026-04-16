@@ -49,14 +49,14 @@ public class GeminiLocationResolver implements AiLocationFallbackResolver {
 
             String text = extractText(response);
             if (!StringUtils.hasText(text)) {
-                log.info("{} rawLocation={}, step=AI, status=FAILED, reason=empty-response-text", LOG_PREFIX, rawLocation);
-                return ResolvedLocation.failed(rawLocation);
+                log.warn("{} rawLocation={}, step=AI, status=FAILED, reason=empty-response-text", LOG_PREFIX, rawLocation);
+                throw new GeminiInfrastructureException("Gemini location response text was blank");
             }
 
             GeminiLocationPayload payload = parsePayload(text);
             if (payload == null || !isUsablePayload(payload)) {
-                log.info("{} rawLocation={}, step=AI, status=FAILED, reason=unusable-payload", LOG_PREFIX, rawLocation);
-                return ResolvedLocation.failed(rawLocation);
+                log.warn("{} rawLocation={}, step=AI, status=FAILED, reason=unusable-payload", LOG_PREFIX, rawLocation);
+                throw new GeminiInfrastructureException("Gemini location response payload was unusable");
             }
 
             LocationResolutionStatus status = resolveStatus(payload.status());
@@ -102,12 +102,6 @@ public class GeminiLocationResolver implements AiLocationFallbackResolver {
                     LocationResolvedBy.AI
             );
         } catch (RuntimeException exception) {
-            log.warn(
-                    "{} rawLocation={}, step=AI, status=FAILED, reason=exception-caught",
-                    LOG_PREFIX,
-                    rawLocation,
-                    exception
-            );
             log.info(
                     "{} rawLocation={}, step=AI, status=FAILED, result=RETURNED, reason=exception-caught",
                     LOG_PREFIX,
