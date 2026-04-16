@@ -87,8 +87,7 @@ public class DefaultLocationResolver implements LocationResolver {
                 rawLocation,
                 googlePlacesResult.status()
         );
-        log.info("{} rawLocation={}, step=AI, action=INVOKE", LOG_PREFIX, rawLocation);
-        ResolvedLocation aiResult = aiLocationFallbackResolver.resolve(rawLocation);
+        ResolvedLocation aiResult = resolveByAi(rawLocation);
         log.info(
                 "{} rawLocation={}, step=AI, status={}, resolvedBy={}",
                 LOG_PREFIX,
@@ -130,6 +129,16 @@ public class DefaultLocationResolver implements LocationResolver {
             return result;
         } catch (RuntimeException exception) {
             log.warn("{} rawLocation={}, step=PLACES, status=FAILED, reason=exception", LOG_PREFIX, rawLocation, exception);
+            return ResolvedLocation.failed(rawLocation);
+        }
+    }
+
+    private ResolvedLocation resolveByAi(String rawLocation) {
+        try {
+            log.info("{} rawLocation={}, step=AI, action=INVOKE", LOG_PREFIX, rawLocation);
+            return aiLocationFallbackResolver.resolve(rawLocation);
+        } catch (RuntimeException exception) {
+            log.info("{} rawLocation={}, step=AI, status=FAILED, result=RETURNED, reason=exception-caught", LOG_PREFIX, rawLocation);
             return ResolvedLocation.failed(rawLocation);
         }
     }
