@@ -58,6 +58,10 @@ public class GeminiSummaryGenerator implements SummaryGenerator {
                 - If exact weekday is not explicitly provided, do not mention it.
                 Always include both umbrella guidance and outfit guidance.
                 Do not omit either one, even if one seems less important.
+                Include numeric weather values only when they materially improve clarity.
+                If rain risk is meaningful, you may include precipitation probability once.
+                If temperature directly helps explain the outfit, you may include one temperature value once.
+                Do not include unnecessary numbers.
                 Mention them naturally and keep the summary concise.
 
                 Reference time:
