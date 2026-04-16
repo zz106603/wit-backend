@@ -31,13 +31,18 @@ public class RecommendationController {
     }
 
     @GetMapping("/home")
-    @Operation(summary = "홈 추천 조회", description = "향후 일정 최대 3건에 대한 추천 목록을 반환한다.")
+    @Operation(
+            summary = "홈 추천 조회",
+            description = "향후 일정 최대 3건에 대한 추천 목록을 반환한다. 각 일정 추천은 독립적으로 생성되며 일부 일정에서 추천 생성에 실패하면 해당 항목은 응답 목록에서 제외될 수 있다."
+    )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "성공",
                     content = @Content(schema = @Schema(implementation = HomeRecommendationResponse.class))),
             @ApiResponse(responseCode = "401", description = "Google 재연동 필요",
                     content = @Content(schema = @Schema(implementation = ApiErrorResponse.class))),
             @ApiResponse(responseCode = "503", description = "Google 연동 장애",
+                    content = @Content(schema = @Schema(implementation = ApiErrorResponse.class))),
+            @ApiResponse(responseCode = "500", description = "서버 내부 오류",
                     content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
     })
     public HomeRecommendationResponse getHomeRecommendations() {
@@ -58,6 +63,8 @@ public class RecommendationController {
             @ApiResponse(responseCode = "401", description = "Google 재연동 필요",
                     content = @Content(schema = @Schema(implementation = ApiErrorResponse.class))),
             @ApiResponse(responseCode = "503", description = "Google 연동 장애",
+                    content = @Content(schema = @Schema(implementation = ApiErrorResponse.class))),
+            @ApiResponse(responseCode = "500", description = "서버 내부 오류",
                     content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
     })
     public RecommendationResponse getEventRecommendation(@PathVariable String eventId) {

@@ -39,6 +39,9 @@
 ### GET `/api/recommendations/home`
 
 - 응답: `recommendations[]`
+- 홈 API는 각 일정 추천을 독립적으로 생성한다.
+- 일부 일정에서 추천 생성에 실패하면 전체 요청을 실패시키지 않고 해당 항목만 응답 목록에서 제외할 수 있다.
+- 따라서 응답 목록은 조회된 전체 후보 일정 수와 항상 같다고 가정하지 않는다.
 - 각 항목 공통 핵심 필드:
   - `eventId`
   - `title`
@@ -84,6 +87,18 @@
 - `GOOGLE_401`: Google 재연동 필요
 - `GOOGLE_503`: Google 연동 장애
 - `COMMON_500`: 서버 내부 오류
+
+추천 API별 오류 노출:
+
+- `GET /api/recommendations/home`
+  - `401 GOOGLE_401`
+  - `503 GOOGLE_503`
+  - `500 COMMON_500`
+- `GET /api/recommendations/events/{eventId}`
+  - `404 RECOMMENDATION_404`
+  - `401 GOOGLE_401`
+  - `503 GOOGLE_503`
+  - `500 COMMON_500`
 
 ## 4. 현재 구현 기준 주의사항
 
