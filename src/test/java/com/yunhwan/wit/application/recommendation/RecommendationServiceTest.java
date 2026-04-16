@@ -103,6 +103,7 @@ class RecommendationServiceTest {
         RecommendationResult result = recommendationService.recommend(calendarEvent);
 
         assertThat(summaryGenerator.capturedInput).isNotNull();
+        assertThat(summaryGenerator.capturedInput.referenceTime()).isEqualTo(currentTime);
         assertThat(summaryGenerator.capturedInput.outfitDecision().needUmbrella()).isTrue();
         assertThat(summaryGenerator.capturedInput.currentWeather()).isEqualTo(result.currentWeather());
         assertThat(summaryGenerator.capturedInput.startWeather()).isEqualTo(result.startWeather());

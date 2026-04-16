@@ -329,6 +329,7 @@ public class RecommendationService {
                     outfitDecision.recommendedOutfitText()
             );
             String summary = summaryGenerator.generate(new SummaryGenerationInput(
+                    LocalDateTime.now(clock),
                     outfitDecision,
                     currentWeather,
                     startWeather,
