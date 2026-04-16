@@ -40,6 +40,8 @@ public class RecommendationController {
                     content = @Content(schema = @Schema(implementation = HomeRecommendationResponse.class))),
             @ApiResponse(responseCode = "401", description = "Google 재연동 필요",
                     content = @Content(schema = @Schema(implementation = ApiErrorResponse.class))),
+            @ApiResponse(responseCode = "404", description = "추천 대상 일정 없음",
+                    content = @Content(schema = @Schema(implementation = ApiErrorResponse.class))),
             @ApiResponse(responseCode = "503", description = "Google 연동 장애",
                     content = @Content(schema = @Schema(implementation = ApiErrorResponse.class))),
             @ApiResponse(responseCode = "500", description = "서버 내부 오류",
