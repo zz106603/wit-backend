@@ -8,6 +8,8 @@ import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Objects;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.util.LinkedMultiValueMap;
@@ -18,6 +20,8 @@ import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.util.UriComponentsBuilder;
 
 public class HttpGoogleOAuthClient implements GoogleOAuthClient {
+
+    private static final Logger log = LoggerFactory.getLogger(HttpGoogleOAuthClient.class);
 
     private static final String AUTHORIZATION_CODE_GRANT_TYPE = "authorization_code";
     private static final String REFRESH_TOKEN_GRANT_TYPE = "refresh_token";
@@ -65,11 +69,13 @@ public class HttpGoogleOAuthClient implements GoogleOAuthClient {
 
         GoogleTokenResponse tokenResponse = requestToken(code);
         if (tokenResponse == null || !StringUtils.hasText(tokenResponse.accessToken())) {
+            log.warn("Google token response is invalid");
             throw new GoogleIntegrationInfrastructureException("Google token response is invalid");
         }
 
         GoogleUserInfoResponse userInfoResponse = requestUserInfo(tokenResponse.accessToken());
         if (userInfoResponse == null || !StringUtils.hasText(userInfoResponse.email())) {
+            log.warn("Google user info response is invalid");
             throw new GoogleIntegrationInfrastructureException("Google user info response is invalid");
         }
 
@@ -89,6 +95,7 @@ public class HttpGoogleOAuthClient implements GoogleOAuthClient {
 
         GoogleTokenResponse tokenResponse = requestRefreshToken(refreshToken);
         if (tokenResponse == null || !StringUtils.hasText(tokenResponse.accessToken())) {
+            log.warn("Google refresh token response is invalid");
             throw new GoogleIntegrationInfrastructureException("Google refresh token response is invalid");
         }
 
@@ -114,8 +121,10 @@ public class HttpGoogleOAuthClient implements GoogleOAuthClient {
                     .retrieve()
                     .body(GoogleTokenResponse.class);
         } catch (RestClientResponseException exception) {
+            log.warn("Google token request failed. status={}", exception.getStatusCode().value(), exception);
             throw new GoogleIntegrationInfrastructureException("Google token request failed", exception);
         } catch (RestClientException exception) {
+            log.warn("Google token communication failed", exception);
             throw new GoogleIntegrationInfrastructureException("Google token communication failed", exception);
         }
     }
@@ -138,8 +147,10 @@ public class HttpGoogleOAuthClient implements GoogleOAuthClient {
             if (isReauthenticationRequired(exception.getStatusCode())) {
                 throw new GoogleReauthenticationRequiredException("Google refresh token is no longer valid");
             }
+            log.warn("Google refresh token request failed. status={}", exception.getStatusCode().value(), exception);
             throw new GoogleIntegrationInfrastructureException("Google refresh token request failed", exception);
         } catch (RestClientException exception) {
+            log.warn("Google refresh token communication failed", exception);
             throw new GoogleIntegrationInfrastructureException("Google refresh token communication failed", exception);
         }
     }
@@ -157,8 +168,10 @@ public class HttpGoogleOAuthClient implements GoogleOAuthClient {
                     .retrieve()
                     .body(GoogleUserInfoResponse.class);
         } catch (RestClientResponseException exception) {
+            log.warn("Google user info request failed. status={}", exception.getStatusCode().value(), exception);
             throw new GoogleIntegrationInfrastructureException("Google user info request failed", exception);
         } catch (RestClientException exception) {
+            log.warn("Google user info communication failed", exception);
             throw new GoogleIntegrationInfrastructureException("Google user info communication failed", exception);
         }
     }
