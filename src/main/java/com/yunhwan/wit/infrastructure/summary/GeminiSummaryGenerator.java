@@ -56,6 +56,8 @@ public class GeminiSummaryGenerator implements SummaryGenerator {
                 - If the event is later, use a date expression or neutral wording.
                 - Do not generate or guess weekday names.
                 - If exact weekday is not explicitly provided, do not mention it.
+                Keep the summary recommendation-focused.
+                Do not mention fallback, failure, cache, approximation, or system behavior.
                 Always include both umbrella guidance and outfit guidance.
                 Do not omit either one, even if one seems less important.
                 Include numeric weather values only when they materially improve clarity.
