@@ -131,7 +131,7 @@ class OutfitRuleEngineTest {
         assertThat(decision.needUmbrella()).isTrue();
         assertThat(decision.recommendedOutfitLevel()).isEqualTo(RecommendedOutfitLevel.LONG_SLEEVE);
         assertThat(decision.outfitReason()).contains("3도 이상 내려가");
-        assertThat(decision.temperatureGap()).isZero();
+        assertThat(decision.temperatureGap()).isNull();
         assertThat(decision.weatherChangeSummary()).contains("기온이 내려갑니다");
     }
 
@@ -162,6 +162,19 @@ class OutfitRuleEngineTest {
     }
 
     @Test
+    void 저온과_비_보정은_13도에서는_적용되지_않는다() {
+        OutfitDecision decision = decide(
+                snapshot(14, 14, 10, WeatherType.CLEAR),
+                snapshot(14, 14, 10, WeatherType.CLEAR),
+                snapshot(13, 13, 40, WeatherType.RAIN)
+        );
+
+        assertThat(decision.recommendedOutfitLevel()).isEqualTo(RecommendedOutfitLevel.LONG_SLEEVE_WITH_LIGHT_OUTER);
+        assertThat(decision.recommendedOutfitText()).isEqualTo("긴팔 + 가벼운 겉옷");
+        assertThat(decision.outfitReason()).contains("종료 시점 체감온도 기준");
+    }
+
+    @Test
     void 보정조건이_없으면_기본_옷차림을_유지한다() {
         OutfitDecision decision = decide(
                 snapshot(21, 21, 10, WeatherType.CLEAR),
@@ -185,6 +198,44 @@ class OutfitRuleEngineTest {
 
         assertThat(decision.recommendedOutfitLevel()).isEqualTo(RecommendedOutfitLevel.LONG_SLEEVE);
         assertThat(decision.recommendedOutfitText()).isEqualTo("긴팔");
+    }
+
+    @Test
+    void 여러_보정조건이_동시에_성립하면_current기준_보정이유를_우선한다() {
+        OutfitDecision decision = decide(
+                snapshot(25, 25, 10, WeatherType.CLEAR),
+                snapshot(23, 23, 10, WeatherType.CLEAR),
+                snapshot(12, 12, 70, WeatherType.RAIN)
+        );
+
+        assertThat(decision.recommendedOutfitLevel()).isEqualTo(RecommendedOutfitLevel.HEAVY_OUTER);
+        assertThat(decision.outfitReason()).contains("현재보다 4도 이상 낮아");
+    }
+
+    @Test
+    void 보정조건이_있어도_두꺼운겉옷_이상으로는_올라가지_않는다() {
+        OutfitDecision decision = decide(
+                snapshot(18, 18, 10, WeatherType.CLEAR),
+                snapshot(15, 15, 10, WeatherType.CLEAR),
+                snapshot(9, 9, 70, WeatherType.RAIN)
+        );
+
+        assertThat(decision.recommendedOutfitLevel()).isEqualTo(RecommendedOutfitLevel.HEAVY_OUTER);
+        assertThat(decision.recommendedOutfitText()).isEqualTo("두꺼운 겉옷");
+        assertThat(decision.outfitReason()).contains("현재보다 4도 이상 낮아");
+    }
+
+    @Test
+    void 비와_강수확률이_동시에_성립하면_우산이유는_비예보를_우선한다() {
+        OutfitDecision decision = decide(
+                snapshot(22, 22, 10, WeatherType.CLEAR),
+                snapshot(21, 21, 10, WeatherType.CLEAR),
+                snapshot(20, 20, 80, WeatherType.RAIN)
+        );
+
+        assertThat(decision.needUmbrella()).isTrue();
+        assertThat(decision.umbrellaReason()).contains("비 예보");
+        assertThat(decision.umbrellaReason()).doesNotContain("50%");
     }
 
     @Test
