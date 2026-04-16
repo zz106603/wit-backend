@@ -47,27 +47,35 @@ public class GeminiSummaryGenerator implements SummaryGenerator {
     private GeminiGenerateContentRequest buildRequest(SummaryGenerationInput input) {
         OutfitDecision decision = input.outfitDecision();
         String prompt = """
-                아래는 이미 규칙 엔진이 계산한 최종 추천 결과다.
-                너는 판단을 바꾸지 말고, 주어진 정보를 짧고 실용적인 한국어 1~2문장으로만 요약하라.
-                과장하지 말고, 우산 여부와 옷차림을 자연스럽게 설명하라.
-                규칙/판단을 새로 만들지 마라.
+                Final recommendation is already decided by the rule engine.
+                Do not change any decision and do not add new reasoning.
+                Output only 1-2 short, practical Korean sentences.
+                Be date-aware:
+                - Use "오늘" only if the event date matches the reference date.
+                - If the event is the next day, do not say "오늘"; use "내일" or neutral wording.
+                - If the event is later, use a date expression or neutral wording.
+                Mention only umbrella need and outfit naturally.
 
-                현재 날씨:
+                Reference time:
                 %s
 
-                시작 시점 날씨:
+                Current weather:
                 %s
 
-                종료 시점 날씨:
+                Start weather:
                 %s
 
-                최종 추천 결과:
+                End weather:
+                %s
+
+                Final recommendation:
                 - needUmbrella: %s
                 - recommendedOutfitText: %s
                 - umbrellaReason: %s
                 - outfitReason: %s
                 - weatherChangeSummary: %s
                 """.formatted(
+                input.referenceTime(),
                 weatherText(input.currentWeather()),
                 weatherText(input.startWeather()),
                 weatherText(input.endWeather()),
