@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -130,6 +131,38 @@ class RecommendationApiIntegrationTest extends IntegrationTestSupport {
     }
 
     @Test
+    void 홈_API는_일부_일정_추천이_실패해도_성공한_항목만_반환한다() throws Exception {
+        CalendarEvent failingEvent = event("event-fail", "실패 일정", "실패 위치");
+        CalendarEvent successfulEvent = event("event-success", "강남 회식", "강남 목구멍");
+        ResolvedLocation failingLocation = resolvedLocation(failingEvent.rawLocation());
+        ResolvedLocation successfulLocation = resolvedLocation(successfulEvent.rawLocation());
+
+        given(googleCalendarClient.fetchUpcomingEvents(any(GoogleIntegration.class), any(LocalDateTime.class), anyInt()))
+                .willReturn(List.of(failingEvent, successfulEvent));
+        given(googlePlacesLocationResolver.resolve(failingEvent.rawLocation())).willReturn(failingLocation);
+        given(googlePlacesLocationResolver.resolve(successfulEvent.rawLocation())).willReturn(successfulLocation);
+        stubNormalWeather(successfulLocation, successfulEvent);
+        given(currentLocationProvider.hasRealCurrentLocation())
+                .willThrow(new RuntimeException("current location check failed"))
+                .willReturn(true);
+
+        mockMvc.perform(get("/api/recommendations/home"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.recommendations", hasSize(1)))
+                .andExpect(jsonPath("$.recommendations[0].eventId").value("event-success"));
+    }
+
+    @Test
+    void 홈_API는_다가오는_일정이_없으면_빈_목록을_반환한다() throws Exception {
+        given(googleCalendarClient.fetchUpcomingEvents(any(GoogleIntegration.class), any(LocalDateTime.class), anyInt()))
+                .willReturn(List.of());
+
+        mockMvc.perform(get("/api/recommendations/home"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.recommendations", hasSize(0)));
+    }
+
+    @Test
     void 이벤트_상세_API_정상_흐름을_검증한다() throws Exception {
         CalendarEvent event = event("event-detail", "판교 미팅", "판교역");
         ResolvedLocation resolvedLocation = ResolvedLocation.resolved(
@@ -176,6 +209,33 @@ class RecommendationApiIntegrationTest extends IntegrationTestSupport {
                 .andExpect(jsonPath("$.recommendations[0].originalLocationResolution.status").value("FAILED"))
                 .andExpect(jsonPath("$.recommendations[0].originalLocationResolution.rawLocation").value("회사 회식"))
                 .andExpect(jsonPath("$.recommendations[0].weatherSource").value("NORMAL"));
+    }
+
+    @Test
+    void 현재날씨만_없으면_fallback없이_추천을_계속하고_currentWeather는_null이다() throws Exception {
+        CalendarEvent event = event("event-no-current", "강남 회식", "강남 목구멍");
+        ResolvedLocation resolvedLocation = resolvedLocation(event.rawLocation());
+
+        given(currentLocationProvider.hasRealCurrentLocation()).willReturn(false);
+        given(googleCalendarClient.fetchUpcomingEvents(any(GoogleIntegration.class), any(LocalDateTime.class), anyInt()))
+                .willReturn(List.of(event));
+        given(googlePlacesLocationResolver.resolve(event.rawLocation())).willReturn(resolvedLocation);
+        given(httpWeatherClient.fetchWeatherRangeResult(any(ResolvedLocation.class), eq(event.startAt()), eq(event.endAt())))
+                .willReturn(new WeatherClient.WeatherRangeResult(
+                        new WeatherForecastSnapshots(
+                                weatherSnapshot(resolvedLocation.displayLocation(), event.startAt(), 19, 18, 30, WeatherType.CLOUDY),
+                                weatherSnapshot(resolvedLocation.displayLocation(), event.endAt(), 16, 14, 70, WeatherType.RAIN)
+                        ),
+                        WeatherClient.WeatherFetchSource.NORMAL
+                ));
+
+        mockMvc.perform(get("/api/recommendations/home"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.recommendations[0].weatherFallbackApplied").value(false))
+                .andExpect(jsonPath("$.recommendations[0].weatherSource").value("NORMAL"))
+                .andExpect(jsonPath("$.recommendations[0].currentWeather").value(nullValue()))
+                .andExpect(jsonPath("$.recommendations[0].startWeather.regionName").value("서울특별시 강남구 테헤란로 1"))
+                .andExpect(jsonPath("$.recommendations[0].endWeather.regionName").value("서울특별시 강남구 테헤란로 1"));
     }
 
     @Test
@@ -284,6 +344,20 @@ class RecommendationApiIntegrationTest extends IntegrationTestSupport {
         mockMvc.perform(get("/api/recommendations/events/missing-event"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("RECOMMENDATION_404"));
+    }
+
+    @Test
+    void 예상치못한_오류는_500_COMMON_500으로_매핑된다() throws Exception {
+        CalendarEvent event = event("event-500", "강남 회식", "강남 목구멍");
+
+        given(googleCalendarClient.fetchUpcomingEvents(any(GoogleIntegration.class), any(LocalDateTime.class), anyInt()))
+                .willReturn(List.of(event));
+        given(currentLocationProvider.hasRealCurrentLocation())
+                .willThrow(new RuntimeException("unexpected internal failure"));
+
+        mockMvc.perform(get("/api/recommendations/events/event-500"))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.code").value("COMMON_500"));
     }
 
     private void stubNormalWeather(ResolvedLocation resolvedLocation, CalendarEvent event) {
