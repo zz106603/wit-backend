@@ -54,6 +54,8 @@ public class GeminiSummaryGenerator implements SummaryGenerator {
                 - Use "오늘" only if the event date matches the reference date.
                 - If the event is the next day, do not say "오늘"; use "내일" or neutral wording.
                 - If the event is later, use a date expression or neutral wording.
+                - Do not generate or guess weekday names.
+                - If exact weekday is not explicitly provided, do not mention it.
                 Always include both umbrella guidance and outfit guidance.
                 Do not omit either one, even if one seems less important.
                 Mention them naturally and keep the summary concise.
