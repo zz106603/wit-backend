@@ -74,12 +74,33 @@ public class RecommendationService {
         ResolvedLocation resolvedLocation = locationResolutionOutcome.location();
         ResolvedLocation currentWeatherLocation = selectCurrentWeatherLocation(currentLocation, resolvedLocation);
 
-        WeatherClient.CurrentWeatherResult currentWeatherResult = fetchCurrentWeather(currentWeatherLocation);
-        WeatherClient.WeatherRangeResult weatherRangeResult = fetchWeatherRange(
-                resolvedLocation,
-                calendarEvent.startAt(),
-                calendarEvent.endAt()
-        );
+        WeatherClient.CurrentWeatherResult currentWeatherResult = null;
+        if (currentWeatherLocation != null) {
+            try {
+                currentWeatherResult = fetchCurrentWeather(currentWeatherLocation);
+            } catch (RuntimeException exception) {
+                log.info(
+                        "[RecommendationDebug] current weather fallback applied. source=SKIP_CURRENT_WEATHER, location={}",
+                        currentWeatherLocation.displayLocation()
+                );
+            }
+        }
+
+        WeatherClient.WeatherRangeResult weatherRangeResult = null;
+        try {
+            weatherRangeResult = fetchWeatherRange(
+                    resolvedLocation,
+                    calendarEvent.startAt(),
+                    calendarEvent.endAt()
+            );
+        } catch (RuntimeException exception) {
+            log.info(
+                    "[RecommendationDebug] weather fallback pending. source=SAFE_DEFAULT, location={}, startTime={}, endTime={}",
+                    resolvedLocation.displayLocation(),
+                    calendarEvent.startAt(),
+                    calendarEvent.endAt()
+            );
+        }
         WeatherSnapshot currentWeather = currentWeatherResult == null ? null : currentWeatherResult.snapshot();
         WeatherForecastSnapshots forecastSnapshots = weatherRangeResult == null ? null : weatherRangeResult.snapshots();
         WeatherSnapshot startWeather = forecastSnapshots == null ? null : forecastSnapshots.startWeather();
@@ -254,25 +275,20 @@ public class RecommendationService {
             log.info("[RecommendationDebug] current weather skipped. policy=NO_REAL_CURRENT_LOCATION");
             return null;
         }
-        try {
-            log.info(
-                    "[RecommendationDebug] current weather before. location={}, lat={}, lng={}",
-                    location.displayLocation(),
-                    location.lat(),
-                    location.lng()
-            );
-            WeatherClient.CurrentWeatherResult weatherResult = weatherClient.fetchCurrentWeatherResult(location);
-            WeatherSnapshot snapshot = weatherResult.snapshot();
-            log.info(
-                    "[RecommendationDebug] current weather after. location={}, targetTime={}",
-                    location.displayLocation(),
-                    snapshot.targetTime()
-            );
-            return weatherResult;
-        } catch (RuntimeException exception) {
-            log.warn("[RecommendationDebug] current weather failed. location={}", location.displayLocation(), exception);
-            return null;
-        }
+        log.info(
+                "[RecommendationDebug] current weather before. location={}, lat={}, lng={}",
+                location.displayLocation(),
+                location.lat(),
+                location.lng()
+        );
+        WeatherClient.CurrentWeatherResult weatherResult = weatherClient.fetchCurrentWeatherResult(location);
+        WeatherSnapshot snapshot = weatherResult.snapshot();
+        log.info(
+                "[RecommendationDebug] current weather after. location={}, targetTime={}",
+                location.displayLocation(),
+                snapshot.targetTime()
+        );
+        return weatherResult;
     }
 
     private WeatherClient.WeatherRangeResult fetchWeatherRange(
@@ -280,40 +296,29 @@ public class RecommendationService {
             LocalDateTime startTime,
             LocalDateTime endTime
     ) {
-        try {
-            log.info(
-                    "[RecommendationDebug] forecast weather range before. location={}, lat={}, lng={}, startTime={}, endTime={}",
-                    location.displayLocation(),
-                    location.lat(),
-                    location.lng(),
-                    startTime,
-                    endTime
-            );
-            WeatherClient.WeatherRangeResult weatherRangeResult = weatherClient.fetchWeatherRangeResult(
-                    location,
-                    startTime,
-                    endTime
-            );
-            WeatherForecastSnapshots snapshots = weatherRangeResult.snapshots();
-            log.info(
-                    "[RecommendationDebug] forecast weather range after. location={}, startTime={}, endTime={}, startType={}, endType={}",
-                    location.displayLocation(),
-                    startTime,
-                    endTime,
-                    snapshots.startWeather().weatherType(),
-                    snapshots.endWeather().weatherType()
-            );
-            return weatherRangeResult;
-        } catch (RuntimeException exception) {
-            log.warn(
-                    "[RecommendationDebug] forecast weather range failed. location={}, startTime={}, endTime={}",
-                    location.displayLocation(),
-                    startTime,
-                    endTime,
-                    exception
-            );
-            return null;
-        }
+        log.info(
+                "[RecommendationDebug] forecast weather range before. location={}, lat={}, lng={}, startTime={}, endTime={}",
+                location.displayLocation(),
+                location.lat(),
+                location.lng(),
+                startTime,
+                endTime
+        );
+        WeatherClient.WeatherRangeResult weatherRangeResult = weatherClient.fetchWeatherRangeResult(
+                location,
+                startTime,
+                endTime
+        );
+        WeatherForecastSnapshots snapshots = weatherRangeResult.snapshots();
+        log.info(
+                "[RecommendationDebug] forecast weather range after. location={}, startTime={}, endTime={}, startType={}, endType={}",
+                location.displayLocation(),
+                startTime,
+                endTime,
+                snapshots.startWeather().weatherType(),
+                snapshots.endWeather().weatherType()
+        );
+        return weatherRangeResult;
     }
 
     private OutfitDecision summarize(
@@ -342,11 +347,10 @@ public class RecommendationService {
             );
             return outfitDecision.withAiSummary(summary);
         } catch (RuntimeException exception) {
-            log.warn(
-                    "[RecommendationDebug] summary generation failed. fallback summary will be used. needUmbrella={}, recommendedOutfitLevel={}",
+            log.info(
+                    "[RecommendationDebug] summary fallback applied. needUmbrella={}, recommendedOutfitLevel={}",
                     outfitDecision.needUmbrella(),
-                    outfitDecision.recommendedOutfitLevel(),
-                    exception
+                    outfitDecision.recommendedOutfitLevel()
             );
             return outfitDecision.withAiSummary(buildFallbackSummary(outfitDecision));
         }

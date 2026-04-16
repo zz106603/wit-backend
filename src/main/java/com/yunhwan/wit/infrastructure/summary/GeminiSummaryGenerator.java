@@ -8,12 +8,16 @@ import com.yunhwan.wit.infrastructure.ai.GeminiApiClient;
 import com.yunhwan.wit.infrastructure.ai.GeminiApiProperties;
 import com.yunhwan.wit.infrastructure.ai.GeminiGenerateContentRequest;
 import com.yunhwan.wit.infrastructure.ai.GeminiGenerateContentResponse;
+import com.yunhwan.wit.infrastructure.ai.GeminiInfrastructureException;
 import java.util.List;
 import java.util.Objects;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.util.StringUtils;
 
 public class GeminiSummaryGenerator implements SummaryGenerator {
 
+    private static final Logger log = LoggerFactory.getLogger(GeminiSummaryGenerator.class);
     private static final String RESPONSE_MIME_TYPE = "text/plain";
 
     private final GeminiApiClient geminiApiClient;
@@ -38,7 +42,8 @@ public class GeminiSummaryGenerator implements SummaryGenerator {
 
         String summary = extractText(response);
         if (!StringUtils.hasText(summary)) {
-            throw new IllegalStateException("Gemini summary response was blank");
+            log.warn("Gemini summary response was blank");
+            throw new GeminiInfrastructureException("Gemini summary response was blank");
         }
 
         return summary.trim();
