@@ -123,13 +123,14 @@ public class HttpGoogleCalendarClient implements GoogleCalendarClient {
 
             GoogleCalendarEventsResponse response = responseEntity.getBody();
 
-            if (response == null || response.items() == null) {
-                log.info(
-                        "[GoogleCalendarDebug] Response body/items empty. bodyPresent={}, itemsPresent={}",
-                        response != null,
-                        response != null && response.items() != null
-                );
-                return List.of();
+            if (response == null) {
+                log.warn("[GoogleCalendarDebug] Response body is null");
+                throw new GoogleIntegrationInfrastructureException("Google Calendar response body is null");
+            }
+
+            if (response.items() == null) {
+                log.warn("[GoogleCalendarDebug] Response items are null");
+                throw new GoogleIntegrationInfrastructureException("Google Calendar response items are null");
             }
 
             log.info("[GoogleCalendarDebug] Response items count: {}", response.items().size());
@@ -149,9 +150,10 @@ public class HttpGoogleCalendarClient implements GoogleCalendarClient {
             }
             return calendarEvents;
         } catch (RestClientResponseException exception) {
-            log.info("[GoogleCalendarDebug] Response status code: {}", exception.getStatusCode().value());
+            log.warn("[GoogleCalendarDebug] Google Calendar request failed. status={}", exception.getStatusCode().value(), exception);
             throw new GoogleIntegrationInfrastructureException("Google Calendar request failed", exception);
         } catch (RestClientException exception) {
+            log.warn("[GoogleCalendarDebug] Google Calendar communication failed", exception);
             throw new GoogleIntegrationInfrastructureException("Google Calendar communication failed", exception);
         }
     }
