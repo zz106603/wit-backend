@@ -241,13 +241,29 @@ flowchart LR
 - Swagger UI: `http://localhost:8080/swagger-ui/index.html`
 - OpenAPI JSON: `http://localhost:8080/v3/api-docs`
 
+최소 검증 순서:
+
+1. `SPRING_PROFILES_ACTIVE=local` 확인
+2. Redis가 `localhost:${REDIS_PORT}`에서 실행 중인지 확인
+3. 앱 기동 후 Swagger UI와 OpenAPI JSON 접근 확인
+
+주의:
+
+- 현재 로컬 실행은 Redis가 필요합니다.
+- Google / Places / Gemini 값이 비어 있어도 앱 자체는 기동할 수 있지만, 해당 외부 연동 기능 검증은 제한됩니다.
+
 ---
 
 ## 환경 변수
 
-### 필수에 가까운 값
+### 최소 기동에 필요한 값
 
-실제 외부 연동까지 확인하려면 아래 값이 필요합니다.
+- `SPRING_PROFILES_ACTIVE=local`
+- `REDIS_PORT`
+
+### 외부 연동 검증에 필요한 값
+
+실제 Google 연동, 위치 해석 fallback, AI summary까지 확인하려면 아래 값이 필요합니다.
 
 - `GOOGLE_CLIENT_ID`
 - `GOOGLE_CLIENT_SECRET`
@@ -258,6 +274,7 @@ flowchart LR
 
 ### 선택 / 기본값 존재
 
+- `CURRENT_LOCATION_NORMALIZED_QUERY`
 - `OPEN_METEO_BASE_URL`
 - `CURRENT_LOCATION_DISPLAY_LOCATION`
 - `CURRENT_LOCATION_LAT`
@@ -270,8 +287,24 @@ flowchart LR
 참고:
 
 - weather provider 기본값은 Open-Meteo입니다.
+- location 해석 실패 시 configured current location 기본값을 사용합니다.
+- 실제 현재 위치가 없으면 `currentWeather`는 목적지 날씨로 대체하지 않고 `null`로 유지합니다.
+- 날씨 조회 실패 시 최신 cache를 먼저 사용하고, 그것도 없으면 safe default 추천으로 내려갑니다.
+- cache TTL은 location `24h`, weather `1h`, recommendation `30m` 기본값을 사용합니다.
 - callback 계약은 `POST /api/integrations/google/callback` 기준입니다.
 - 기존 `GET /api/integrations/google/callback`도 호환용으로 유지됩니다.
+
+### 프로필 차이
+
+- `test`
+  - Spring 테스트 전용 프로필
+  - 외부 연동과 cache는 mock/stub 기반으로 검증합니다.
+- `local`
+  - 기본 실행 프로필
+  - 로컬 Redis와 기본 env 값으로 최소 수동 확인에 사용합니다.
+- `runtime`
+  - 별도 전용 파일은 없고 배포 환경 env 주입 기준입니다.
+  - `application.yaml` 기본값을 쓰되, 필요한 비밀값과 포트를 환경 변수로 주입하는 전제를 문서 기준으로 유지합니다.
 
 ---
 
