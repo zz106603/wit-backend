@@ -248,6 +248,8 @@ flowchart LR
 2. MySQL이 `localhost:${MYSQL_PORT}`에서 실행 중인지 확인
 3. Redis가 `localhost:${REDIS_PORT}`에서 실행 중인지 확인
 4. 앱 기동 후 Swagger UI와 OpenAPI JSON 접근 확인
+5. 아무 API나 호출해 응답 헤더 `X-Trace-Id` 확인
+6. 같은 요청 처리 로그에 동일한 `traceId=` 값이 찍히는지 확인
 
 주의:
 
