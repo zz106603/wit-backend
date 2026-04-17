@@ -238,7 +238,7 @@ class RecommendationServiceTest {
         assertThat(result.endWeather()).isNotNull();
         assertThat(result.outfitDecision().needUmbrella()).isTrue();
         assertThat(result.outfitDecision().outfitReason()).contains("3도 이상 내려가");
-        assertThat(result.outfitDecision().temperatureGap()).isZero();
+        assertThat(result.outfitDecision().temperatureGap()).isNull();
     }
 
     @Test
