@@ -310,7 +310,7 @@ flowchart LR
   - 로컬 MySQL, Redis와 기본 env 값으로 최소 수동 확인에 사용합니다.
 - `runtime`
   - 별도 전용 파일은 없고 배포 환경 env 주입 기준입니다.
-  - `application.yaml` 기본값을 쓰되, 필요한 비밀값과 포트를 환경 변수로 주입하는 전제를 문서 기준으로 유지합니다.
+  - `application.yaml` 기본값을 쓰되, 필요한 비밀값과 함께 DB 및 Redis 연결 정보는 환경 변수로 주입하는 전제를 유지합니다.
 
 ---
 
