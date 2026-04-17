@@ -6,6 +6,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.UUID;
+import java.util.regex.Pattern;
 import org.slf4j.MDC;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -15,6 +16,8 @@ public class TraceIdFilter extends OncePerRequestFilter {
 
     public static final String TRACE_ID_HEADER = "X-Trace-Id";
     private static final String TRACE_ID_MDC_KEY = "traceId";
+    private static final int MAX_TRACE_ID_LENGTH = 100;
+    private static final Pattern TRACE_ID_PATTERN = Pattern.compile("^[a-zA-Z0-9-]+$");
 
     @Override
     protected void doFilterInternal(
@@ -29,16 +32,22 @@ public class TraceIdFilter extends OncePerRequestFilter {
         try {
             filterChain.doFilter(request, response);
         } finally {
-            response.setHeader(TRACE_ID_HEADER, traceId);
             MDC.remove(TRACE_ID_MDC_KEY);
         }
     }
 
     private String resolveTraceId(HttpServletRequest request) {
         String traceId = request.getHeader(TRACE_ID_HEADER);
-        if (traceId == null || traceId.isBlank()) {
+        if (!isValidTraceId(traceId)) {
             return UUID.randomUUID().toString();
         }
         return traceId;
+    }
+
+    private boolean isValidTraceId(String traceId) {
+        return traceId != null
+                && !traceId.isBlank()
+                && traceId.length() <= MAX_TRACE_ID_LENGTH
+                && TRACE_ID_PATTERN.matcher(traceId).matches();
     }
 }
