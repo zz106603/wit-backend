@@ -228,10 +228,11 @@ flowchart LR
 
 ### 사전 요구사항
 - Java 21
+- MySQL
 - Redis
 
 ### 실행 방법 (Quick Start)
-1. Redis 실행: `docker-compose up -d redis`
+1. MySQL, Redis 실행: `docker-compose up -d mysql redis`
 2. 애플리케이션 실행: `./gradlew bootRun`
 
 → `http://localhost:8080/swagger-ui/index.html` 에서 바로 확인할 수 있습니다.
@@ -244,12 +245,13 @@ flowchart LR
 최소 검증 순서:
 
 1. `SPRING_PROFILES_ACTIVE=local` 확인
-2. Redis가 `localhost:${REDIS_PORT}`에서 실행 중인지 확인
-3. 앱 기동 후 Swagger UI와 OpenAPI JSON 접근 확인
+2. MySQL이 `localhost:${MYSQL_PORT}`에서 실행 중인지 확인
+3. Redis가 `localhost:${REDIS_PORT}`에서 실행 중인지 확인
+4. 앱 기동 후 Swagger UI와 OpenAPI JSON 접근 확인
 
 주의:
 
-- 현재 로컬 실행은 Redis가 필요합니다.
+- 현재 로컬 실행은 MySQL과 Redis가 필요합니다.
 - Google / Places / Gemini 값이 비어 있어도 앱 자체는 기동할 수 있지만, 해당 외부 연동 기능 검증은 제한됩니다.
 
 ---
@@ -259,6 +261,10 @@ flowchart LR
 ### 최소 기동에 필요한 값
 
 - `SPRING_PROFILES_ACTIVE=local`
+- `MYSQL_PORT`
+- `MYSQL_DATABASE`
+- `MYSQL_USER`
+- `MYSQL_PASSWORD`
 - `REDIS_PORT`
 
 ### 외부 연동 검증에 필요한 값
@@ -301,7 +307,7 @@ flowchart LR
   - 외부 연동과 cache는 mock/stub 기반으로 검증합니다.
 - `local`
   - 기본 실행 프로필
-  - 로컬 Redis와 기본 env 값으로 최소 수동 확인에 사용합니다.
+  - 로컬 MySQL, Redis와 기본 env 값으로 최소 수동 확인에 사용합니다.
 - `runtime`
   - 별도 전용 파일은 없고 배포 환경 env 주입 기준입니다.
   - `application.yaml` 기본값을 쓰되, 필요한 비밀값과 포트를 환경 변수로 주입하는 전제를 문서 기준으로 유지합니다.
