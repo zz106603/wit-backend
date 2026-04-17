@@ -3,6 +3,7 @@ package com.yunhwan.wit.presentation.api.recommendation;
 import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -20,6 +21,7 @@ import com.yunhwan.wit.domain.model.WeatherSnapshot;
 import com.yunhwan.wit.domain.model.WeatherType;
 import com.yunhwan.wit.infrastructure.config.SecurityConfig;
 import com.yunhwan.wit.presentation.api.GlobalExceptionHandler;
+import com.yunhwan.wit.presentation.filter.TraceIdFilter;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -32,7 +34,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(RecommendationController.class)
 @AutoConfigureMockMvc
-@Import({GlobalExceptionHandler.class, SecurityConfig.class})
+@Import({GlobalExceptionHandler.class, SecurityConfig.class, TraceIdFilter.class})
 class RecommendationControllerTest {
 
     @Autowired
@@ -48,6 +50,7 @@ class RecommendationControllerTest {
 
         mockMvc.perform(get("/api/recommendations/home"))
                 .andExpect(status().isOk())
+                .andExpect(header().exists(TraceIdFilter.TRACE_ID_HEADER))
                 .andExpect(jsonPath("$.recommendations[0].eventId").value("event-1"))
                 .andExpect(jsonPath("$.recommendations[0].title").value("강남 회식"))
                 .andExpect(jsonPath("$.recommendations[0].startAt").value("2026-04-07T18:00:00"))
@@ -123,8 +126,20 @@ class RecommendationControllerTest {
 
         mockMvc.perform(get("/api/recommendations/events/event-404"))
                 .andExpect(status().isNotFound())
+                .andExpect(header().exists(TraceIdFilter.TRACE_ID_HEADER))
                 .andExpect(jsonPath("$.code").value("RECOMMENDATION_404"))
                 .andExpect(jsonPath("$.message").value("eventId에 해당하는 추천 대상이 없습니다. eventId=event-404"));
+    }
+
+    @Test
+    void 요청에_trace_id가_있으면_응답헤더에_같은값을_유지한다() throws Exception {
+        given(recommendationHomeService.getHomeRecommendations())
+                .willReturn(List.of(recommendationResult()));
+
+        mockMvc.perform(get("/api/recommendations/home")
+                        .header(TraceIdFilter.TRACE_ID_HEADER, "trace-id-123"))
+                .andExpect(status().isOk())
+                .andExpect(header().string(TraceIdFilter.TRACE_ID_HEADER, "trace-id-123"));
     }
 
     private RecommendationResult recommendationResult() {
