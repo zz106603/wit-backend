@@ -142,6 +142,18 @@ class RecommendationControllerTest {
                 .andExpect(header().string(TraceIdFilter.TRACE_ID_HEADER, "trace-id-123"));
     }
 
+    @Test
+    void 요청_trace_id가_유효하지_않으면_새_trace_id를_반환한다() throws Exception {
+        given(recommendationHomeService.getHomeRecommendations())
+                .willReturn(List.of(recommendationResult()));
+
+        mockMvc.perform(get("/api/recommendations/home")
+                        .header(TraceIdFilter.TRACE_ID_HEADER, "invalid_trace_id"))
+                .andExpect(status().isOk())
+                .andExpect(header().exists(TraceIdFilter.TRACE_ID_HEADER))
+                .andExpect(header().string(TraceIdFilter.TRACE_ID_HEADER, org.hamcrest.Matchers.not("invalid_trace_id")));
+    }
+
     private RecommendationResult recommendationResult() {
         CalendarEvent event = calendarEvent();
         ResolvedLocation location = location(event);
