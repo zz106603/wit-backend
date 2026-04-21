@@ -101,7 +101,7 @@ docker-compose up -d mysql redis
 
 ```bash
 ./gradlew bootJar
-java -jar build/libs/*.jar
+java -jar build/libs/wit-backend.jar
 ```
 
 ### 배포 직후
