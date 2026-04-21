@@ -361,7 +361,11 @@ GET  /api/recommendations/events/{eventId}
 
 ```
 현재 구현:
-- single configured TTL 사용
+- 목적: 반복 위치 해석 시 Google Places/AI 호출 비용 절감
+- key: raw location 입력을 trim + lower-case 한 값
+- miss 시 rule -> Google Places -> AI fallback 순서로 해석
+- `FAILED` 결과도 cache 저장 후 recommendation 단계 current location fallback으로 연결
+- 기본 TTL: 24h
 
 향후 운영 옵션:
 - 상태별 TTL 차등 적용 가능
@@ -373,7 +377,12 @@ GET  /api/recommendations/events/{eventId}
 
 ```
 현재 구현:
-- single configured TTL 사용
+- current key: lat/lon + hour-bucket(now)
+- forecast key: lat/lon + targetTime
+- latest fallback key: latest:current|forecast + lat/lon
+- 정상 조회 실패 시 latest cache를 먼저 사용하고, start/end 확보 실패 시 safe default로 내린다
+- `weatherSource=CACHE`는 exact cache hit와 latest cache fallback을 함께 뜻한다
+- 기본 TTL: 1h
 
 향후 운영 옵션:
 - 현재/예보 TTL 분리 가능
@@ -385,7 +394,10 @@ GET  /api/recommendations/events/{eventId}
 
 ```
 현재 구현:
-- single configured TTL 사용
+- key: eventId + 30분 요청 버킷 + startAt + endAt + normalized rawLocation
+- cache hit 시 저장된 최종 RecommendationResult를 그대로 반환
+- 기본 TTL: 30m
+- 별도 API 필드로 recommendation cache hit/miss를 노출하지 않음
 ```
 
 ---
