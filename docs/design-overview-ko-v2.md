@@ -382,6 +382,7 @@ GET  /api/recommendations/events/{eventId}
 - latest fallback key: latest:current|forecast + lat/lon
 - 정상 조회 실패 시 latest cache를 먼저 사용하고, start/end 확보 실패 시 safe default로 내린다
 - `weatherSource=CACHE`는 exact cache hit와 latest cache fallback을 함께 뜻한다
+- weather cache usage만 API 응답(`weatherSource`, `weatherFallbackApplied`)으로 구분한다
 - 기본 TTL: 1h
 
 향후 운영 옵션:

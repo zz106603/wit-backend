@@ -113,6 +113,7 @@
 cache 검증 기준:
 
 - API 응답 검증
+  - weather cache만 응답 필드로 검증한다
   - `weatherSource=NORMAL|CACHE|SAFE_DEFAULT`
   - `weatherFallbackApplied`
   - `fallbackNotice`
