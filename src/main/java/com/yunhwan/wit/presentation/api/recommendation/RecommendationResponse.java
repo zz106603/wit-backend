@@ -89,7 +89,7 @@ public record RecommendationResponse(
             return "날씨 조회 실패로 안전 기본 추천을 반환했습니다.";
         }
         if ("CACHE".equals(result.weatherSource().name())) {
-            return "실시간 날씨 대신 최신 캐시 데이터를 사용했습니다.";
+            return "실시간 호출 대신 캐시된 날씨 데이터를 사용했습니다.";
         }
         if (result.locationFallbackApplied()) {
             return "일정 위치 해석에 실패해 현재 위치 기준으로 추천했습니다.";
