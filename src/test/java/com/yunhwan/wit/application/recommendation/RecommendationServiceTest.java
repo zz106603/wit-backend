@@ -9,6 +9,7 @@ import com.yunhwan.wit.application.summary.SummaryGenerator;
 import com.yunhwan.wit.application.weather.CachingWeatherClient;
 import com.yunhwan.wit.application.weather.WeatherClient;
 import com.yunhwan.wit.application.weather.WeatherCache;
+import com.yunhwan.wit.application.weather.WeatherForecastSnapshots;
 import com.yunhwan.wit.domain.model.CalendarEvent;
 import com.yunhwan.wit.domain.model.LocationResolvedBy;
 import com.yunhwan.wit.domain.model.LocationResolutionStatus;
@@ -280,6 +281,59 @@ class RecommendationServiceTest {
         assertThat(result.endWeather()).isNotNull();
         assertThat(ruleEngine.called).isTrue();
         assertThat(fallbackDecisionProvider.called).isFalse();
+    }
+
+    @Test
+    void 일부_날씨만_캐시를_사용해도_weather_source는_CACHE다() {
+        ResolvedLocation currentLocation = currentLocation();
+        ResolvedLocation eventLocation = eventLocation();
+        WeatherSnapshot currentWeather = snapshot(currentLocation, currentTime, 20, 20, 10, WeatherType.CLEAR);
+        WeatherSnapshot startWeather = snapshot(eventLocation, calendarEvent.startAt(), 19, 19, 20, WeatherType.CLOUDY);
+        WeatherSnapshot endWeather = snapshot(eventLocation, calendarEvent.endAt(), 16, 16, 70, WeatherType.RAIN);
+        WeatherClient weatherClient = new WeatherClient() {
+            @Override
+            public WeatherSnapshot fetchCurrentWeather(ResolvedLocation location) {
+                return currentWeather;
+            }
+
+            @Override
+            public WeatherSnapshot fetchWeatherAt(ResolvedLocation location, LocalDateTime targetTime) {
+                return targetTime.equals(calendarEvent.startAt()) ? startWeather : endWeather;
+            }
+
+            @Override
+            public CurrentWeatherResult fetchCurrentWeatherResult(ResolvedLocation location) {
+                return new CurrentWeatherResult(currentWeather, WeatherFetchSource.CACHE);
+            }
+
+            @Override
+            public WeatherRangeResult fetchWeatherRangeResult(
+                    ResolvedLocation location,
+                    LocalDateTime startTime,
+                    LocalDateTime endTime
+            ) {
+                return new WeatherRangeResult(
+                        new WeatherForecastSnapshots(startWeather, endWeather),
+                        WeatherFetchSource.NORMAL
+                );
+            }
+        };
+
+        RecommendationService recommendationService = new RecommendationService(
+                rawLocation -> eventLocation,
+                () -> currentLocation,
+                weatherClient,
+                new OutfitRuleEngine(),
+                new WeatherFailureFallbackDecisionProvider(),
+                new StubSummaryGenerator(),
+                new InMemoryRecommendationCache(),
+                clock
+        );
+
+        RecommendationResult result = recommendationService.recommend(calendarEvent);
+
+        assertThat(result.weatherFallbackApplied()).isFalse();
+        assertThat(result.weatherSource()).isEqualTo(RecommendationWeatherSource.CACHE);
     }
 
     @Test
