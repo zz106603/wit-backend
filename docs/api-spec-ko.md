@@ -21,6 +21,7 @@
 - `fallbackNotice`는 fallback 의미를 바로 이해할 수 있게 추가한 사용자용 안내 문구다.
 - fallback/degraded-state 설명의 1차 채널은 `fallbackNotice`, `locationFallbackApplied`, `weatherFallbackApplied`, `weatherSource` 같은 구조화 필드다.
 - `summary`는 fallback/degraded-state를 주된 방식으로 설명하지 않으며, fallback 여부 판단은 반드시 구조화 필드와 `fallbackNotice`로 한다.
+- API 응답으로 구분 가능한 cache usage는 weather cache에 한정한다. 이 구분은 `weatherSource`와 `weatherFallbackApplied`로 표현한다.
 - 현재 MVP는 location/recommendation cache hit 여부를 별도 응답 필드로 노출하지 않는다. 두 캐시는 내부 최적화이며 검증은 테스트로 수행한다.
 
 ## 2. 엔드포인트
