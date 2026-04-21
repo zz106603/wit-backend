@@ -274,7 +274,7 @@ class RecommendationApiIntegrationTest extends IntegrationTestSupport {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.recommendations[0].weatherFallbackApplied").value(false))
                 .andExpect(jsonPath("$.recommendations[0].weatherSource").value("CACHE"))
-                .andExpect(jsonPath("$.recommendations[0].fallbackNotice").value("실시간 날씨 대신 최신 캐시 데이터를 사용했습니다."));
+                .andExpect(jsonPath("$.recommendations[0].fallbackNotice").value("실시간 호출 대신 캐시된 날씨 데이터를 사용했습니다."));
     }
 
     @Test
