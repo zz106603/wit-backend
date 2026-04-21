@@ -81,7 +81,8 @@
 - 이 경우 메인 `locationResolution`은 fallback에 실제 사용된 위치를 나타내고, `originalLocationResolution`은 원래의 `FAILED` 해석 결과를 보존한다
 
 ### Weather Failure
-- fallback to latest cached data
+- weather path order: exact cache hit or 정상 조회 -> API failure 시 latest cache fallback -> safe default
+- `weatherSource=CACHE`는 exact cache hit와 latest cache fallback을 모두 포함한다
 - start 또는 end weather가 없으면 → safe default outfit
 - start / end weather가 있으면 recommendation은 계속 진행한다
 - current weather만 없으면 current 기반 보정만 생략한다
@@ -105,15 +106,23 @@
 ## Cache Strategy (for later stage)
 
 ### Location Cache
-- key: location_name
-- 현재 구현은 single configured TTL 사용
+- 목적: 반복 location 해석 시 Google Places/AI 호출 비용 절감
+- key: raw location 입력을 `trim + lower-case`한 값
+- miss 시 resolver 순서: rule -> Google Places -> AI fallback
+- resolver 최종 결과가 `FAILED`여도 cache 저장 대상이다
+- recommendation 단계에서 `FAILED`면 current location fallback으로 이어진다
+- 현재 구현 기본 TTL: 24h
 - 상태별 TTL 차등 적용은 향후 운영 옵션
 
 ### Weather Cache
-- key: lat/lon + time
-- 현재 구현은 single configured TTL 사용
+- current key: `lat/lon + hour-bucket(now)`
+- forecast key: `lat/lon + targetTime`
+- latest fallback key: `latest:current|forecast + lat/lon`
+- 현재 구현 기본 TTL: 1h
 - 현재/예보 TTL 분리는 향후 운영 옵션
 
 ### Recommendation Cache
-- key: event + time + location
-- 현재 구현은 single configured TTL 사용
+- key: `eventId + 30분 요청 버킷 + startAt + endAt + normalized rawLocation`
+- cache hit 시 저장된 최종 `RecommendationResult`를 그대로 반환한다
+- 현재 구현 기본 TTL: 30m
+- recommendation cache hit/miss는 현재 MVP에서 별도 API 필드로 노출하지 않는다

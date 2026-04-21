@@ -110,6 +110,19 @@
 
 또한 AI fallback wiring은 별도 Spring 기반 테스트에서 확인한다.
 
+cache 검증 기준:
+
+- API 응답 검증
+  - `weatherSource=NORMAL|CACHE|SAFE_DEFAULT`
+  - `weatherFallbackApplied`
+  - `fallbackNotice`
+  - safe default 시 weather snapshot 3종이 `null`
+- 단위 테스트 검증
+  - location cache: key 정규화, TTL, hit/miss, `FAILED` 결과 저장
+  - weather cache: current/forecast/latest key, TTL, latest fallback 경로
+  - recommendation cache: key, TTL, hit 시 전체 흐름 미재실행, miss 후 저장
+- 현재 MVP는 location/recommendation cache hit 여부를 API 필드로 직접 노출하지 않는다
+
 ---
 
 ## 6. 테스트 구조
