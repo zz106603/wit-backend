@@ -18,6 +18,46 @@
 
 ---
 
+## 미리보기
+
+<p align="center">
+  <img src="./assets/home-screen.gif" width="30%" />
+  <img src="./assets/detail-screen.gif" width="30%" />
+  <img src="./assets/fallback-screen.gif" width="30%" />
+</p>
+
+<p align="center">
+  <b>홈 화면</b> ·
+  <b>추천 상세</b> ·
+  <b>추천 근거</b>
+</p>
+
+---
+
+## 응답 JSON 예시
+
+```json
+{
+  "title": "서울대입구 목구멍",
+  "location": "서울특별시 관악구 봉천동 1602-4",
+  "needUmbrella": false,
+  "recommendedOutfitText": "긴팔",
+  "summary": "내일은 우산 없이 긴팔 옷차림이 좋겠습니다.",
+  "locationFallbackApplied": false,
+  "weatherFallbackApplied": false,
+  "weatherSource": "NORMAL",
+  "weatherChangeSummary": "일정이 진행될수록 기온이 내려갑니다.",
+  "locationResolution": {
+    "status": "APPROXIMATED",
+    "resolvedBy": "GOOGLE_PLACES"
+  }
+}
+```
+
+핵심 응답 필드를 통해 fallback/degraded 상태와 위치 해석 결과를 클라이언트가 명확하게 인지할 수 있도록 설계했습니다.
+
+---
+
 ## Problem → Solution → Value
 
 ### Problem
